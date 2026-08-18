@@ -1,0 +1,30 @@
+{
+  "appId": "orbis",
+  "domainModel": "G:/Projects/orbis-io-buddy/docs/domain-model.md",
+  "singleCurrency": "GBP",
+  "sections": [
+    { "name": "Executive Summary", "required": true },
+    { "name": "Trip Overview", "required": true, "tableColumns": ["Field", "Detail"] },
+    { "name": "Cost Summary", "required": true, "tableColumns": ["Category", "Amount"] },
+    {
+      "name": "Itinerary at a Glance",
+      "required": true,
+      "tableColumns": ["Date", "Type", "Title", "Location"]
+    },
+    { "name": "Highlights by Country / City", "required": true },
+    { "name": "Key Agent & School Engagements", "required": true },
+    { "name": "Recruitment Event Outcomes", "required": true },
+    {
+      "name": "Action Items / Follow-ups",
+      "required": true,
+      "tableColumns": ["#", "Action", "Owner", "Due"],
+      "allowDatesOutsidePeriod": true
+    },
+    { "name": "Conclusion", "required": true }
+  ],
+  "disabledChecks": {
+    "LEAD-01": "Needs the per-university lead-capture form and its field mapping, which does not exist yet.",
+    "LEAD-02": "As above.",
+    "LEAD-03": "As above."
+  }
+}
