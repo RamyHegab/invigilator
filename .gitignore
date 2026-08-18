@@ -1,5 +1,9 @@
 node_modules/
 dist/
+
+# Live fixtures pulled from a real database — contain personal data.
+fixtures/
+out/
 *.log
 .env
 .env.*
