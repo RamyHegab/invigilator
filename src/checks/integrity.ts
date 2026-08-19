@@ -151,9 +151,21 @@ export const structure: Check = {
 
     for (const spec of config.sections) {
       if (!spec.required) continue;
-      const section = sections.find((s) => s.name.toLowerCase() === spec.name.toLowerCase());
-      if (!section) continue;
-      if (section.body.replace(/[\s*_-]/g, "").length === 0) {
+      const index = sections.findIndex((s) => s.name.toLowerCase() === spec.name.toLowerCase());
+      if (index === -1) continue;
+
+      // A section that opens straight into sub-headings is not empty — its
+      // content lives one level down. Gather everything under it until a
+      // heading of the same or higher level closes it.
+      const section = sections[index]!;
+      let content = section.body;
+      for (let i = index + 1; i < sections.length; i++) {
+        const next = sections[i]!;
+        if (next.level <= section.level) break;
+        content += `\n${next.name}\n${next.body}`;
+      }
+
+      if (content.replace(/[\s*_-]/g, "").length === 0) {
         findings.push({
           checkId: "STR-04",
           severity: "error",

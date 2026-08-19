@@ -205,6 +205,24 @@ describe("structure", () => {
     expect(found.some((x) => x.checkId === "STR-04")).toBe(true);
   });
 
+  it("does not call a section empty when its content sits in sub-headings", () => {
+    // Found on the first live run: a real report opened "Highlights by
+    // Country / City" straight into ### per-country sub-sections, and the
+    // check called it empty. Content one level down is still content.
+    const report = goodReport.replace(
+      "## Highlights by Country / City\nStrong interest in Lagos and Accra.",
+      "## Highlights by Country / City\n\n### Nigeria — Lagos\nStrong interest in Lagos.\n\n### Ghana — Accra\nGood turnout in Accra.",
+    );
+    const found = runChecks(report, facts(), config).findings;
+    expect(found.filter((x) => x.checkId === "STR-04")).toEqual([]);
+  });
+
+  it("still catches a section with neither body nor sub-headings", () => {
+    const report = goodReport.replace("Strong interest in Lagos and Accra.", "");
+    const found = runChecks(report, facts(), config).findings;
+    expect(found.some((x) => x.checkId === "STR-04")).toBe(true);
+  });
+
   it("reads numbered and bold headings as the same section", () => {
     const report = goodReport.replace("## Conclusion", "## 9. **Conclusion**");
     const found = runChecks(report, facts(), config).findings;

@@ -159,20 +159,58 @@ async function generateReport(system: string, prompt: string): Promise<string> {
       "content-type": "application/json",
     },
     body: JSON.stringify({
-      model: process.env.AI_MODEL || "claude-sonnet-5",
-      max_tokens: 8000,
+      // Streamed, like the app. A non-streaming request at this ceiling died
+      // with ECONNRESET after ten minutes — the exact failure the app's move
+      // to streamText prevents.
+      stream: true,
+      // Mirrors the app: report writing runs the more capable model with a
+      // ceiling large enough that truncation is not the limiting factor.
+      model: process.env.AI_MODEL || "claude-opus-5",
+      max_tokens: 64000,
       system,
       messages: [{ role: "user", content: prompt }],
     }),
   });
   if (!res.ok) throw new Error(`Anthropic ${res.status}: ${await res.text()}`);
-  const json: any = await res.json();
-  // stop_reason tells us whether a short report is the model's choice or a
-  // truncation — the difference between a writing problem and a config bug.
+  if (!res.body) throw new Error("No response body to stream.");
+
+  const started = Date.now();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let text = "";
+  let stopReason = "unknown";
+  let usage: any = {};
+  let lastLog = Date.now();
+
+  for await (const chunk of res.body as any) {
+    buffer += decoder.decode(chunk, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) {
+      if (!line.startsWith("data: ")) continue;
+      const event = JSON.parse(line.slice(6));
+      if (event.type === "content_block_delta" && event.delta?.type === "text_delta") {
+        text += event.delta.text;
+      } else if (event.type === "message_delta") {
+        stopReason = event.delta?.stop_reason ?? stopReason;
+        usage = { ...usage, ...event.usage };
+      } else if (event.type === "message_start") {
+        usage = { ...usage, ...event.message?.usage };
+      }
+    }
+    // Long thinking looks like a hang otherwise.
+    if (Date.now() - lastLog > 30_000) {
+      lastLog = Date.now();
+      console.log(`  …still generating (${Math.round((Date.now() - started) / 1000)}s, ${text.length} chars)`);
+    }
+  }
+
   console.log(
-    `model=${json.model} stop_reason=${json.stop_reason} in=${json.usage?.input_tokens} out=${json.usage?.output_tokens}`,
+    `stop_reason=${stopReason} in=${usage.input_tokens} out=${usage.output_tokens} elapsed=${Math.round(
+      (Date.now() - started) / 1000,
+    )}s`,
   );
-  return (json.content ?? []).map((b: any) => b.text ?? "").join("");
+  return text;
 }
 
 const fixturePath = process.argv[2];
@@ -196,11 +234,69 @@ if (process.env.REPORT_FILE) {
   console.log("Report written to out/report.md");
 }
 
-const result = runChecks(report, facts, orbisConfig as unknown as AppConfig);
+/**
+ * Mirror of the app's table rendering, so the artifact we check is the report
+ * the user actually receives — not the model's half of it. Deliberately kept
+ * crude: its only job is to fill the placeholders with the same facts the app
+ * fills them with. The real rendering, and its tests, live in Orbis.
+ */
+function spliceForCheck(md: string, input: OrbisTripInput, facts: SourceFactsLike): string {
+  const rows = [...input.activities].sort((a: any, b: any) =>
+    String(a.day_date).localeCompare(String(b.day_date)),
+  );
+  const itinerary = [
+    "| Date | Type | Title | Location |",
+    "| --- | --- | --- | --- |",
+    ...rows.map((a: any) => {
+      const title =
+        a.type === "agent_visit" && a.agent_id && a.agents?.trading_name
+          ? `[${a.title}](/agents/${a.agent_id}) _(requires login)_`
+          : a.title;
+      const location =
+        a.location || a.agent_branches?.city || a.schools?.city || a.to_city || "—";
+      return `| ${a.day_date} | ${a.type} | ${title} | ${location} |`;
+    }),
+  ].join("\n");
+
+  const fig = (id: string) => facts.figures.find((f) => f.id === id)?.value ?? 0;
+  const cur = input.accountCurrency;
+  const cost = [
+    "| Category | Amount |",
+    "| --- | --- |",
+    `| Travel | ${cur} ${fig("travel").toFixed(2)} |`,
+    `| Hotels | ${cur} ${fig("hotels").toFixed(2)} |`,
+    `| Events | ${cur} ${fig("events").toFixed(2)} |`,
+    `| **Total** | **${cur} ${fig("total").toFixed(2)}** |`,
+  ].join("\n");
+
+  return md.split("{{ITINERARY_TABLE}}").join(itinerary).split("{{COST_TABLE}}").join(cost);
+}
+
+type SourceFactsLike = { figures: Array<{ id: string; value: number }> };
+
+const checkedReport = spliceForCheck(report, input, facts);
+writeFileSync("out/report-final.md", checkedReport, "utf8");
+const result = runChecks(checkedReport, facts, orbisConfig as unknown as AppConfig);
 
 console.log("\n=== FACTS DERIVED FROM THE DATABASE ===");
 console.log(`entities: ${facts.entities.length}  figures: ${facts.figures.length}  links: ${facts.links.length}  forbidden strings: ${facts.forbidden.length}`);
 for (const f of facts.figures) console.log(`  ${f.label}: ${f.value.toFixed(2)} ${f.currency ?? ""}`);
+
+// The app renders these two tables from data and splices them in where the
+// model leaves a placeholder. Verify the model left them exactly once each —
+// that is what makes the report complete regardless of trip size.
+console.log("\n=== STRUCTURE ===");
+const placeholdersOk = ["{{COST_TABLE}}", "{{ITINERARY_TABLE}}"].every(
+  (t) => report.split(t).length - 1 === 1,
+);
+if (!placeholdersOk) console.log("  ⚠ placeholder problem — see counts below");
+for (const token of ["{{COST_TABLE}}", "{{ITINERARY_TABLE}}"]) {
+  const count = report.split(token).length - 1;
+  console.log(`  ${token}: ${count === 1 ? "present once ✓" : `${count} occurrences ✗`}`);
+}
+const headings = report.match(/^#{1,3}\s+.*$/gm) ?? [];
+console.log(`  headings: ${headings.length}`);
+for (const h of headings) console.log(`    ${h.trim()}`);
 
 console.log("\n=== CHECK RESULT ===");
 console.log(`checks run: ${result.ran.join(", ")}`);

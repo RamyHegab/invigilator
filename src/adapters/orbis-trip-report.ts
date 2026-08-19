@@ -58,26 +58,42 @@ export function toSourceFacts(input: OrbisTripInput): SourceFacts {
     if (country?.trim()) entities.push({ id: `country:${country}`, kind: "country", label: country });
   }
 
+  let hasSchoolVisit = false;
+
   for (const a of input.activities) {
-    if (a.type === "agent_visit" || a.type === "recruitment_event") {
-      const linked = a.agents?.trading_name?.trim();
-      if (linked && a.agent_id) {
-        entities.push({ id: `agent:${a.agent_id}`, kind: "agent", label: linked });
-        links.push({ href: `/agents/${a.agent_id}`, label: linked, required: a.type === "agent_visit" });
-      } else if (a.manual_agent?.trim()) {
-        // Free-typed: no record, so no card and no link. Its absence from the
-        // report's links is correct, not a defect — hence mustAppear stays true
-        // for the name but no LinkFact is created.
-        entities.push({ id: `agent:manual:${a.id}`, kind: "agent", label: a.manual_agent.trim() });
-      }
-      const branch = a.agent_branches;
-      const branchCity = branch?.city?.trim();
-      if (branchCity) entities.push({ id: `city:${branchCity}`, kind: "city", label: branchCity });
+    // An agent can be attached to any activity type, not just an agent visit —
+    // a school visit is often arranged by an agent, and the app links that
+    // agent's card from it. Keying off type missed those and made the checker
+    // call a perfectly real link invented.
+    const linked = a.agents?.trading_name?.trim();
+    if (linked && a.agent_id) {
+      entities.push({ id: `agent:${a.agent_id}`, kind: "agent", label: linked });
+      links.push({
+        href: `/agents/${a.agent_id}`,
+        label: linked,
+        // Only an agent visit is *required* to carry the link; elsewhere it is
+        // permitted but not expected.
+        required: a.type === "agent_visit",
+      });
+    } else if (a.manual_agent?.trim()) {
+      // Free-typed: no record, so no card and no link. Its absence from the
+      // report's links is correct, not a defect — hence mustAppear stays true
+      // for the name but no LinkFact is created.
+      entities.push({ id: `agent:manual:${a.id}`, kind: "agent", label: a.manual_agent.trim() });
     }
+
+    const branchCity = a.agent_branches?.city?.trim();
+    if (branchCity) entities.push({ id: `city:${branchCity}`, kind: "city", label: branchCity });
+
     if (a.type === "school_visit" && a.schools?.name?.trim()) {
+      hasSchoolVisit = true;
       entities.push({ id: `school:${a.id}`, kind: "school", label: a.schools.name.trim() });
     }
   }
+
+  // Schools have no per-record page: the app links them all to the directory,
+  // so /schools is a legitimate destination whenever a school was visited.
+  if (hasSchoolVisit) links.push({ href: "/schools", label: "Schools directory" });
 
   // Cost categories, matching how Orbis reports them: travel, hotels, and
   // everything else under Events. Every costed activity lands in exactly one,
