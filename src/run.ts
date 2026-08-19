@@ -2,6 +2,7 @@ import type { AppConfig, Check, CheckContext, Finding, SourceFacts } from "./typ
 import { coverage, datesWithinPeriod } from "./checks/coverage.js";
 import { figuresReconcile, figuresStated, singleCurrency } from "./checks/figures.js";
 import { links, noPersonalData, structure } from "./checks/integrity.js";
+import { statedCounts } from "./checks/counts.js";
 
 /**
  * Every deterministic check. Judgement checks (does the summary address the
@@ -18,6 +19,7 @@ export const CHECKS: Check[] = [
   links,
   noPersonalData,
   structure,
+  statedCounts,
 ];
 
 export type RunResult = {

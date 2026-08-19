@@ -82,8 +82,9 @@ export function toSourceFacts(input: OrbisTripInput): SourceFacts {
       entities.push({ id: `agent:manual:${a.id}`, kind: "agent", label: a.manual_agent.trim() });
     }
 
-    const branchCity = a.agent_branches?.city?.trim();
-    if (branchCity) entities.push({ id: `city:${branchCity}`, kind: "city", label: branchCity });
+    // Deliberately NOT registering the branch city as somewhere the report must
+    // mention: an agency office in Ho Chi Minh City is not a place this trip
+    // went, and requiring it made the checker demand cities nobody visited.
 
     if (a.type === "school_visit" && a.schools?.name?.trim()) {
       hasSchoolVisit = true;
@@ -142,6 +143,16 @@ export function toSourceFacts(input: OrbisTripInput): SourceFacts {
     }
   }
 
+  // Counts a report may assert about itself. Phrases are how a writer would
+  // actually word them; CNT-01 only fires when a number sits right before one.
+  const countOf = (t: string) => input.activities.filter((a) => a.type === t).length;
+  const counts = [
+    { label: "travel legs", value: countOf("travel"), aliases: ["sectors", "flights", "sectors of air travel"] },
+    { label: "agent visits", value: countOf("agent_visit"), aliases: ["agent engagements", "agent meetings"] },
+    { label: "school visits", value: countOf("school_visit"), aliases: ["schools visited"] },
+    { label: "recruitment events", value: countOf("recruitment_event"), aliases: ["fair days"] },
+  ];
+
   const seen = new Set<string>();
   return {
     period: { start: input.trip.start_date, end: input.trip.end_date },
@@ -149,5 +160,6 @@ export function toSourceFacts(input: OrbisTripInput): SourceFacts {
     figures,
     links,
     forbidden: Array.from(forbidden),
+    counts,
   };
 }

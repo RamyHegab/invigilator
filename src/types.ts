@@ -62,6 +62,15 @@ export type LinkFact = {
   required?: boolean;
 };
 
+/** A count the artifact may state about itself, e.g. six travel legs. */
+export type CountFact = {
+  /** The phrase as a reader would write it: "travel legs". */
+  label: string;
+  value: number;
+  /** Other wordings for the same thing: "sectors", "flights". */
+  aliases?: string[];
+};
+
 export type SourceFacts = {
   /** Dates in the artifact must fall inside this range, when given. */
   period?: { start: string; end: string };
@@ -74,6 +83,8 @@ export type SourceFacts = {
    * case-insensitive, so these produce no false positives.
    */
   forbidden: string[];
+  /** Counts the artifact may assert about itself; checked by CNT-01. */
+  counts?: CountFact[];
 };
 
 export type SectionSpec = {

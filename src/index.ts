@@ -11,6 +11,7 @@ export type {
   Check,
   CheckContext,
   Entity,
+  CountFact,
   Figure,
   Finding,
   LinkFact,
