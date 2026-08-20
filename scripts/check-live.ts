@@ -74,6 +74,10 @@ function toAdapterInput(fixture: Row): OrbisTripInput {
     hotels: asArray(fixture.hotels),
     contacts: asArray(fixture.contacts),
     accountCurrency: fixture.accountCurrency ?? "GBP",
+    // Supplied by the fixture, already aggregated by the app's own
+    // computeLeadMetrics. Absent for a trip with no mapped lead form, which is
+    // the normal case and simply leaves BRK-01..03 nothing to check.
+    leads: fixture.leads ?? null,
   };
 }
 

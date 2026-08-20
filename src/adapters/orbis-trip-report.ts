@@ -1,4 +1,4 @@
-import type { Entity, Figure, LinkFact, SourceFacts } from "../types.js";
+import type { Breakdown, Entity, Figure, LinkFact, SourceFacts } from "../types.js";
 
 /**
  * Orbis → SourceFacts.
@@ -42,6 +42,23 @@ export type OrbisTripInput = {
     phone?: string | null;
   }>;
   accountCurrency: string;
+  /**
+   * Lead figures already aggregated by the app, from `computeLeadMetrics`.
+   *
+   * Taken pre-computed rather than recomputed here on purpose: the report and
+   * the checker must agree on what a lead *is*, and the only way to guarantee
+   * that is for both to read the same function. Reimplementing the mapping in
+   * this file would produce a checker that disagrees with the app for reasons
+   * that are nobody's bug.
+   *
+   * Absent when the tenant has not mapped its form yet — the breakdowns are
+   * then simply not supplied, and BRK-01..03 have nothing to check.
+   */
+  leads?: {
+    total: number;
+    byLevel: Record<string, number>;
+    topCourses: Array<{ course: string; count: number }>;
+  } | null;
 };
 
 const num = (v: unknown): number | null => {
@@ -153,6 +170,49 @@ export function toSourceFacts(input: OrbisTripInput): SourceFacts {
     { label: "recruitment events", value: countOf("recruitment_event"), aliases: ["fair days"] },
   ];
 
+  // Lead figures: the whole, the study-level split, the course ranking.
+  //
+  // Scoped to the outcomes section because the report also prints a per-event
+  // "Leads captured" line, and an unscoped total would read one event's figure
+  // as a claim about the trip. Per-event verification needs each event under
+  // its own heading before it can be scoped — until then this checks the
+  // trip-level figures, which is where the contradiction appeared.
+  const breakdowns: Breakdown[] = [];
+  const leads = input.leads;
+  if (leads) {
+    const levelAliases: Record<string, string[]> = {
+      UG: ["undergraduate"],
+      PGT: ["postgraduate taught", "postgraduate"],
+      Other: ["unspecified", "not stated"],
+    };
+    breakdowns.push({
+      id: "leads-by-level",
+      label: "leads by study level",
+      section: "Recruitment Event Outcomes",
+      totalLabel: "total leads captured",
+      totalAliases: ["total leads"],
+      total: leads.total,
+      parts: Object.entries(leads.byLevel).map(([level, value]) => ({
+        label: level,
+        value,
+        aliases: levelAliases[level] ?? [],
+        // "Other" is students who chose "not sure yet". A report that leaves
+        // that group out is not wrong, so its absence must not be a finding.
+        mustAppear: level !== "Other",
+      })),
+    });
+
+    if (leads.topCourses.length) {
+      breakdowns.push({
+        id: "leads-by-course",
+        label: "most demanded courses",
+        section: "Recruitment Event Outcomes",
+        ranked: true,
+        parts: leads.topCourses.map((c) => ({ label: c.course, value: c.count })),
+      });
+    }
+  }
+
   const seen = new Set<string>();
   return {
     period: { start: input.trip.start_date, end: input.trip.end_date },
@@ -161,5 +221,6 @@ export function toSourceFacts(input: OrbisTripInput): SourceFacts {
     links,
     forbidden: Array.from(forbidden),
     counts,
+    breakdowns,
   };
 }

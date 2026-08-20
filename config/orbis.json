@@ -22,9 +22,5 @@
     },
     { "name": "Conclusion", "required": true }
   ],
-  "disabledChecks": {
-    "LEAD-01": "Needs the per-university lead-capture form and its field mapping, which does not exist yet.",
-    "LEAD-02": "As above.",
-    "LEAD-03": "As above."
-  }
+  "disabledChecks": {}
 }

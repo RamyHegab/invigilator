@@ -62,6 +62,41 @@ export type LinkFact = {
   required?: boolean;
 };
 
+/** One labelled quantity inside a breakdown. */
+export type BreakdownPart = {
+  label: string;
+  value: number;
+  /** Other wordings: "UG" is also written "undergraduate". */
+  aliases?: string[];
+  /** When false the artifact may omit it without a finding. */
+  mustAppear?: boolean;
+};
+
+/**
+ * A whole and its parts: a split, a tally, a ranking.
+ *
+ * Generic on purpose. Orbis fills this with lead figures, but the shape says
+ * nothing about leads — the next app fills it with invoice lines or cohorts and
+ * gets the same three checks for nothing.
+ */
+export type Breakdown = {
+  id: string;
+  /** "leads by study level" — used in messages, never in logic. */
+  label: string;
+  /** Restrict the search to this section and everything nested under it. */
+  section?: string;
+  /** How a writer words the whole: "leads captured". Checked by BRK-01. */
+  totalLabel?: string;
+  totalAliases?: string[];
+  total?: number;
+  parts: BreakdownPart[];
+  /**
+   * When true the order the artifact lists the parts in reads as a ranking,
+   * and presenting a smaller part ahead of a larger one is a finding.
+   */
+  ranked?: boolean;
+};
+
 /** A count the artifact may state about itself, e.g. six travel legs. */
 export type CountFact = {
   /** The phrase as a reader would write it: "travel legs". */
@@ -85,6 +120,8 @@ export type SourceFacts = {
   forbidden: string[];
   /** Counts the artifact may assert about itself; checked by CNT-01. */
   counts?: CountFact[];
+  /** Breakdowns the artifact should state; checked by BRK-01..03. */
+  breakdowns?: Breakdown[];
 };
 
 export type SectionSpec = {
