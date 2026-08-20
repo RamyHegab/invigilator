@@ -1,6 +1,6 @@
 {
   "appId": "orbis",
-  "domainModel": "G:/Projects/orbis-io-buddy/docs/domain-model.md",
+  "domainModel": "docs/domain-model.md (in the Orbis repo)",
   "singleCurrency": "GBP",
   "sections": [
     { "name": "Executive Summary", "required": true },

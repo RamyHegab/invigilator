@@ -11,13 +11,15 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./config/orbis.json": "./config/orbis.json",
     "./adapters/orbis-trip-report": {
       "types": "./dist/adapters/orbis-trip-report.d.ts",
       "import": "./dist/adapters/orbis-trip-report.js"
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "config"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
