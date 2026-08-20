@@ -4,11 +4,27 @@
   "private": true,
   "description": "Checks generated reports against the data they claim to describe. App-agnostic: one engine, one config file per app.",
   "type": "module",
-  "main": "src/index.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./adapters/orbis-trip-report": {
+      "types": "./dist/adapters/orbis-trip-report.d.ts",
+      "import": "./dist/adapters/orbis-trip-report.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepare": "npm run build"
   },
   "devDependencies": {
     "tsx": "^4.23.12",

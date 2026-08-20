@@ -8,6 +8,8 @@
  */
 export type {
   AppConfig,
+  Breakdown,
+  BreakdownPart,
   Check,
   CheckContext,
   Entity,
