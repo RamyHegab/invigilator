@@ -25,7 +25,7 @@ const facts = (over: Partial<SourceFacts> = {}): SourceFacts => ({
     { id: "total", label: "Total", value: 2500, currency: "GBP" },
   ],
   links: [{ href: "/agents/a1", label: "Lagos Study Group", required: true }],
-  forbidden: ["Ahmed Farouk", "sarah@lagosstudy.com"],
+  forbidden: ["Jordan Rivera", "contact@example.invalid"],
   ...over,
 });
 
@@ -165,13 +165,13 @@ describe("links", () => {
 
 describe("personal data", () => {
   it("catches an email address", () => {
-    const report = goodReport.replace("a productive meeting", "contact sarah@lagosstudy.com");
+    const report = goodReport.replace("a productive meeting", "contact contact@example.invalid");
     const found = runChecks(report, facts(), config).findings;
     expect(found.some((x) => x.checkId === "PII-01")).toBe(true);
   });
 
   it("catches a third-party contact name lifted from a note", () => {
-    const report = goodReport.replace("a productive meeting", "met Ahmed Farouk, who will send figures");
+    const report = goodReport.replace("a productive meeting", "met Jordan Rivera, who will send figures");
     const found = runChecks(report, facts(), config).findings;
     expect(found.some((x) => x.checkId === "PII-03")).toBe(true);
   });
