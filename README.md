@@ -64,6 +64,19 @@ finding is always worth reading.
 | `LINK-02` | A required link the report failed to include |
 | `PII-01/02/03` | Email addresses, phone numbers, third-party contact names |
 | `STR-01..04` | Missing sections, wrong order, a mandated table absent, an empty section |
+| `CNT-01` | A count the report asserts about itself that the data contradicts |
+| `BRK-01` | The whole of a breakdown — a stated total that is not the total |
+| `BRK-02` | A part of a breakdown that is wrong, **or one the report never states at all** |
+| `BRK-03` | A ranked breakdown presented in the wrong order — a smaller item named as the largest |
+
+`BRK-01..03` are what the Orbis domain model calls `LEAD-01..03`. The engine has
+no notion of a lead: a breakdown is any whole with labelled parts, so the same
+three checks serve an invoice's line items or a cohort's age bands unchanged.
+
+`BRK-02`'s omission finding is the only check here that looks for something that
+is *not* in the report. It exists because of a real failure that every other
+check passed: a report stated five leads captured and then said no study-level
+split had been recorded, while the database held three UG and one PGT.
 
 Judgement checks — does the summary address the stated objectives, is a claim
 supported by the data — need a model and run in a separate pass. They are
