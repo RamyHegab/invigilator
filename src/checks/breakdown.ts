@@ -20,8 +20,15 @@ import { normaliseHeading, parseSections } from "../parse.js";
 
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-/** Separators that can sit between a label and its number: "UG) | 3", "UG: 3". */
-const SEP = "[)\\s|:=\\-\u2013\u2014.]*";
+/**
+ * Separators between a label and its number: "UG) | 3", "UG: 3", "Engineering (1)".
+ *
+ * Both brackets belong here. A writer is as likely to put the count in
+ * parentheses after the name as in the next table cell, and leaving "(" out
+ * meant a report that named its top course as "Engineering (1)" was reported
+ * for never stating it at all.
+ */
+const SEP = "[()\\s|:=\\-\u2013\u2014.,]*";
 
 /**
  * A number that is not one side of a ratio.

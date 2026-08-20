@@ -103,6 +103,12 @@ describe("BRK-02: the parts", () => {
     expect(f).toEqual([]);
   });
 
+  it("reads a count given in parentheses after the name", () => {
+    // Verbatim shape from a live report: "| Most demanded courses | Engineering (1) |".
+    const md = section("| Most demanded courses | Business & Management (2) |");
+    expect(find(md, "BRK-02", courses()).filter((f) => f.summary.includes("Business"))).toEqual([]);
+  });
+
   it("does not read a ratio as a count", () => {
     // Verbatim from the dry-run report, whose figures were all correct. The
     // "1" in "3:1" was being bound to UG.
