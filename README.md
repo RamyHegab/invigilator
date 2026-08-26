@@ -68,6 +68,7 @@ finding is always worth reading.
 | `BRK-01` | The whole of a breakdown — a stated total that is not the total |
 | `BRK-02` | A part of a breakdown that is wrong, **or one the report never states at all** |
 | `BRK-03` | A ranked breakdown presented in the wrong order — a smaller item named as the largest |
+| `ATTR-01` | A person credited with something the record gives to someone else, or to nobody |
 
 `BRK-01..03` are what the Orbis domain model calls `LEAD-01..03`. The engine has
 no notion of a lead: a breakdown is any whole with labelled parts, so the same

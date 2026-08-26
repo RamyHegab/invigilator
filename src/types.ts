@@ -37,6 +37,40 @@ export type Entity = {
    * with no linkable card, say. Absence is then not a finding.
    */
   mustAppear?: boolean;
+  /**
+   * The section it must appear *in*, when appearing anywhere is not enough.
+   *
+   * An agent visit named in passing in the summary, but missing from the
+   * section that lists engagements, is still a gap: a reader who goes looking
+   * for what happened with that agent will not find it. Unset means anywhere
+   * in the artifact will do.
+   */
+  section?: string;
+};
+
+/**
+ * A claim the artifact makes about *who did something*.
+ *
+ * Attribution is its own failure mode. A report that names the wrong colleague
+ * beside a visit is not missing anything and contradicts no figure — every
+ * other check passes it — but the record it creates is false, and it is the
+ * kind of falsehood people act on.
+ */
+export type Attribution = {
+  /** What the claim is about, as the artifact would name it: an agency, a school. */
+  subject: string;
+  aliases?: string[];
+  /**
+   * Who the source says did it. **Null means the source names nobody**, and the
+   * artifact naming somebody anyway is an invention.
+   */
+  expected: string | null;
+  /**
+   * Every person who could plausibly be named here — the team. Without the full
+   * set a wrong name is unrecognisable: the check can only tell that the
+   * expected name is absent, not that a different real person was credited.
+   */
+  candidates: string[];
 };
 
 /**
@@ -120,6 +154,8 @@ export type SourceFacts = {
   forbidden: string[];
   /** Counts the artifact may assert about itself; checked by CNT-01. */
   counts?: CountFact[];
+  /** Who the artifact says did what; checked by ATTR-01. */
+  attributions?: Attribution[];
   /** Breakdowns the artifact should state; checked by BRK-01..03. */
   breakdowns?: Breakdown[];
 };

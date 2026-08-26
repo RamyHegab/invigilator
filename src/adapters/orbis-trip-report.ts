@@ -1,4 +1,4 @@
-import type { Breakdown, Entity, Figure, LinkFact, SourceFacts } from "../types.js";
+import type { Attribution, Breakdown, Entity, Figure, LinkFact, SourceFacts } from "../types.js";
 
 /**
  * Orbis → SourceFacts.
@@ -26,6 +26,8 @@ export type OrbisTripInput = {
     cost_currency?: string | null;
     agent_id?: string | null;
     manual_agent?: string | null;
+    /** The staff member recorded as having made the visit. Null when unknown. */
+    visited_by?: string | null;
     agents?: { trading_name?: string | null } | null;
     schools?: { name?: string | null; city?: string | null; country?: string | null } | null;
     agent_branches?: { branch_name?: string | null; city?: string | null; country?: string | null } | null;
@@ -42,6 +44,12 @@ export type OrbisTripInput = {
     phone?: string | null;
   }>;
   accountCurrency: string;
+  /**
+   * The team, so a wrong attribution is recognisable as a wrong *person*
+   * rather than merely an absent name. Own-team names are permitted in reports
+   * (see PII-03 in the domain model); it is third-party contacts that are not.
+   */
+  staff?: Array<{ id: string; name: string }>;
   /**
    * Lead figures already aggregated by the app, from `computeLeadMetrics`.
    *
@@ -67,9 +75,47 @@ const num = (v: unknown): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
+const MONTHS =
+  /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\b|\b(19|20)\d{2}\b/gi;
+
+/**
+ * An event title with the month and year taken out.
+ *
+ * Activity titles carry the period because that is how they are told apart in a
+ * list: "Global Study UK - Cairo June 2026". A report does the opposite and
+ * should -- it names the event once and gives the real dates in a column, so it
+ * writes "Global Study UK — Cairo". Requiring the raw title verbatim reports a
+ * correct, better-written report as having omitted the event.
+ *
+ * Supplied as an alias, never as the label, so a finding still quotes the title
+ * as it appears in the app.
+ */
+function withoutPeriod(title: string): string {
+  return title.replace(MONTHS, " ").replace(/\s+/g, " ").replace(/^[\s\-–—]+|[\s\-–—]+$/g, "").trim();
+}
+
+/** Same event, same section, one thing to say. Multi-day fairs are separate rows. */
+const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+/** Activity types that record a person going somewhere, so can be misattributed. */
+const VISIT_TYPES = new Set(["agent_visit", "school_visit", "recruitment_event"]);
+
+/**
+ * Section names from the app's own report format.
+ *
+ * A university template uses different headings, and the engine handles that by
+ * falling back to the whole document when the named section is not there --
+ * so a scoped entity is never reported missing merely because our heading is.
+ */
+const ENGAGEMENTS = "Key Agent & School Engagements";
+const EVENT_OUTCOMES = "Recruitment Event Outcomes";
+
 export function toSourceFacts(input: OrbisTripInput): SourceFacts {
   const entities: Entity[] = [];
   const links: LinkFact[] = [];
+  const attributions: Attribution[] = [];
+  const staffNames = (input.staff ?? []).map((s) => s.name.trim()).filter(Boolean);
+  const staffById = new Map((input.staff ?? []).map((s) => [s.id, s.name.trim()]));
 
   for (const country of input.trip.destinations ?? []) {
     if (country?.trim()) entities.push({ id: `country:${country}`, kind: "country", label: country });
@@ -82,9 +128,15 @@ export function toSourceFacts(input: OrbisTripInput): SourceFacts {
     // a school visit is often arranged by an agent, and the app links that
     // agent's card from it. Keying off type missed those and made the checker
     // call a perfectly real link invented.
+    //
+    // An agent visit has to be written up where a reader goes looking for it.
+    // Named once in the summary and absent from the engagements section, the
+    // visit is effectively missing -- COV-03 in the domain model.
+    const visitSection = a.type === "agent_visit" ? ENGAGEMENTS : undefined;
+
     const linked = a.agents?.trading_name?.trim();
     if (linked && a.agent_id) {
-      entities.push({ id: `agent:${a.agent_id}`, kind: "agent", label: linked });
+      entities.push({ id: `agent:${a.agent_id}`, kind: "agent", label: linked, section: visitSection });
       links.push({
         href: `/agents/${a.agent_id}`,
         label: linked,
@@ -96,7 +148,29 @@ export function toSourceFacts(input: OrbisTripInput): SourceFacts {
       // Free-typed: no record, so no card and no link. Its absence from the
       // report's links is correct, not a defect — hence mustAppear stays true
       // for the name but no LinkFact is created.
-      entities.push({ id: `agent:manual:${a.id}`, kind: "agent", label: a.manual_agent.trim() });
+      entities.push({
+        id: `agent:manual:${a.id}`,
+        kind: "agent",
+        label: a.manual_agent.trim(),
+        section: visitSection,
+      });
+    }
+
+    // Who made this visit, if the report says at all. The subject is whatever
+    // the report would call the visit: the agency, the school, the event.
+    if (staffNames.length && VISIT_TYPES.has(a.type)) {
+      const subject =
+        a.agents?.trading_name?.trim() ||
+        a.manual_agent?.trim() ||
+        a.schools?.name?.trim() ||
+        a.title?.trim();
+      if (subject) {
+        attributions.push({
+          subject,
+          expected: a.visited_by ? (staffById.get(a.visited_by) ?? null) : null,
+          candidates: staffNames,
+        });
+      }
     }
 
     // Deliberately NOT registering the branch city as somewhere the report must
@@ -105,7 +179,29 @@ export function toSourceFacts(input: OrbisTripInput): SourceFacts {
 
     if (a.type === "school_visit" && a.schools?.name?.trim()) {
       hasSchoolVisit = true;
-      entities.push({ id: `school:${a.id}`, kind: "school", label: a.schools.name.trim() });
+      entities.push({
+        id: `school:${slug(a.schools.name.trim())}`,
+        kind: "school",
+        label: a.schools.name.trim(),
+        section: ENGAGEMENTS,
+      });
+    }
+
+    // Every recruitment event has to reach the outcomes section -- COV-04. A
+    // fair that happened and went unreported is the most expensive omission
+    // here: it is where the leads came from.
+    if (a.type === "recruitment_event" && a.title?.trim()) {
+      const title = a.title.trim();
+      const shortened = withoutPeriod(title);
+      entities.push({
+        // Keyed by name, not by activity: a three-day fair is three rows in the
+        // app and one event in the report, and saying so three times is noise.
+        id: `event:${slug(shortened || title)}`,
+        kind: "recruitment event",
+        label: title,
+        aliases: shortened && shortened.toLowerCase() !== title.toLowerCase() ? [shortened] : undefined,
+        section: EVENT_OUTCOMES,
+      });
     }
   }
 
@@ -221,6 +317,7 @@ export function toSourceFacts(input: OrbisTripInput): SourceFacts {
     links,
     forbidden: Array.from(forbidden),
     counts,
+    attributions,
     breakdowns,
   };
 }

@@ -119,9 +119,52 @@ export function parseAmounts(text: string): number[] {
   return out;
 }
 
-/** Case- and whitespace-insensitive containment, for label matching. */
+/**
+ * Case-, whitespace- and punctuation-insensitive containment.
+ *
+ * Punctuation matters here in a way it does not look like it should. A record
+ * titled "Global Study UK - Cairo" is written up by a report as "Global Study
+ * UK — Cairo", because a writer reaches for an em dash. Comparing the two
+ * literally says the report never mentions the event, which is both false and
+ * the most confusing kind of false: the name is right there on the page.
+ *
+ * So dashes, slashes, commas and the rest collapse to a single space on both
+ * sides before comparing. Two names that differ only in punctuation are the
+ * same name.
+ */
 export function mentions(haystack: string, needle: string): boolean {
   if (!needle.trim()) return false;
-  const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ");
+  const norm = (s: string) =>
+    s
+      .toLowerCase()
+      .replace(/[‐-―\-_/\\,.;:()[\]{}'"“”‘’]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
   return norm(haystack).includes(norm(needle));
+}
+
+/**
+ * The named section *and everything nested under it*.
+ *
+ * Sections are parsed one heading at a time, so a `##` section's body stops at
+ * its first `###` child. Scoping to the body alone would look past exactly the
+ * subsections where per-item detail is written.
+ *
+ * A section that is not there returns the whole artifact rather than nothing.
+ * Its absence is COV-01's finding to report; a scoped check that silently saw
+ * an empty string would report every item in it as missing too, turning one
+ * fault into twenty.
+ */
+export function sectionScope(artifact: string, section?: string): string {
+  if (!section) return artifact;
+  const sections = parseSections(artifact);
+  const want = normaliseHeading(section).toLowerCase();
+  const start = sections.findIndex((s) => s.name.toLowerCase() === want);
+  if (start === -1) return artifact;
+  const level = sections[start]!.level;
+  const parts = [sections[start]!.body];
+  for (let i = start + 1; i < sections.length && sections[i]!.level > level; i++) {
+    parts.push(sections[i]!.name, sections[i]!.body);
+  }
+  return parts.join("\n");
 }

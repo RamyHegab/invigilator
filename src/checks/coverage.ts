@@ -1,5 +1,5 @@
 import type { Check, Finding } from "../types.js";
-import { mentions, parseIsoDates, parseSections } from "../parse.js";
+import { mentions, parseIsoDates, parseSections, sectionScope } from "../parse.js";
 
 /**
  * Everything the source says happened is mentioned.
@@ -15,15 +15,28 @@ export const coverage: Check = {
     for (const e of facts.entities) {
       if (e.mustAppear === false) continue;
       const names = [e.label, ...(e.aliases ?? [])];
-      if (names.some((n) => mentions(artifact, n))) continue;
+
+      // Scoped entities must appear where a reader would go looking. An agent
+      // named once in the summary but absent from the section that lists
+      // engagements is still a gap.
+      const scope = sectionScope(artifact, e.section);
+      if (names.some((n) => mentions(scope, n))) continue;
+
+      const elsewhere = e.section ? names.some((n) => mentions(artifact, n)) : false;
       findings.push({
         checkId: "COV-01",
         severity: "error",
-        summary: `The report never mentions ${e.kind} "${e.label}".`,
-        detail:
-          e.aliases?.length
-            ? `Looked for: ${names.map((n) => `"${n}"`).join(", ")}.`
+        summary: elsewhere
+          ? `${e.kind} "${e.label}" is mentioned, but not in "${e.section}".`
+          : `The report never mentions ${e.kind} "${e.label}".`,
+        detail: [
+          elsewhere
+            ? `Anyone looking up what happened with it will go to "${e.section}" and find nothing.`
             : undefined,
+          e.aliases?.length ? `Looked for: ${names.map((n) => `"${n}"`).join(", ")}.` : undefined,
+        ]
+          .filter(Boolean)
+          .join(" ") || undefined,
       });
     }
     return findings;

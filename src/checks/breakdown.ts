@@ -1,5 +1,5 @@
 import type { Breakdown, BreakdownPart, Check, CheckContext, Finding } from "../types.js";
-import { normaliseHeading, parseSections } from "../parse.js";
+import { sectionScope } from "../parse.js";
 
 /**
  * Breakdowns: a whole, its parts, and the order they are presented in.
@@ -96,31 +96,10 @@ function firstMention(text: string, labels: string[]): number {
   return best;
 }
 
-/**
- * The named section *and everything nested under it*.
- *
- * Sections are parsed one heading at a time, so a `##` section's body stops at
- * its first `###` child. Scoping to the body alone would look past exactly the
- * subsections where a per-event breakdown is written.
- */
-function scopeOf(artifact: string, section?: string): string {
-  if (!section) return artifact;
-  const sections = parseSections(artifact);
-  const want = normaliseHeading(section).toLowerCase();
-  const start = sections.findIndex((s) => s.name.toLowerCase() === want);
-  if (start === -1) return artifact; // absence is COV-01's finding, not ours
-  const level = sections[start]!.level;
-  const parts = [sections[start]!.body];
-  for (let i = start + 1; i < sections.length && sections[i]!.level > level; i++) {
-    parts.push(sections[i]!.name, sections[i]!.body);
-  }
-  return parts.join("\n");
-}
-
 const labelsOf = (p: BreakdownPart) => [p.label, ...(p.aliases ?? [])];
 
 const eachBreakdown = (ctx: CheckContext, fn: (b: Breakdown, scope: string) => Finding[]): Finding[] =>
-  (ctx.facts.breakdowns ?? []).flatMap((b) => fn(b, scopeOf(ctx.artifact, b.section)));
+  (ctx.facts.breakdowns ?? []).flatMap((b) => fn(b, sectionScope(ctx.artifact, b.section)));
 
 export const breakdownTotal: Check = {
   id: "BRK-01",

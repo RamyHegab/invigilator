@@ -4,6 +4,7 @@ import { figuresReconcile, figuresStated, singleCurrency } from "./checks/figure
 import { links, noPersonalData, structure } from "./checks/integrity.js";
 import { statedCounts } from "./checks/counts.js";
 import { breakdownOrder, breakdownParts, breakdownTotal } from "./checks/breakdown.js";
+import { attribution } from "./checks/attribution.js";
 
 /**
  * Every deterministic check. Judgement checks (does the summary address the
@@ -24,6 +25,7 @@ export const CHECKS: Check[] = [
   breakdownTotal,
   breakdownParts,
   breakdownOrder,
+  attribution,
 ];
 
 export type RunResult = {
