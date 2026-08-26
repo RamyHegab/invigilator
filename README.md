@@ -55,7 +55,7 @@ finding is always worth reading.
 
 | Id | What it catches |
 |---|---|
-| `COV-01` | Something in the data the report never mentions |
+| `COV-01` | Something in the data the report never mentions — or, for an entity tied to a section, mentions but not where a reader will look |
 | `DATE-01` | A date outside the period covered (sections may be exempted — follow-up due dates are meant to be later) |
 | `FIG-01` | A figure missing or altered rather than copied |
 | `FIG-02` | Categories that do not sum to the total they break down |
@@ -102,6 +102,24 @@ npm test
 
 ## Status
 
-Engine and deterministic checks: working, 25 tests. Not yet wired to a live database —
-the Orbis adapter is written and unit-testable but nothing calls it in production yet.
-Telemetry capture and the email alerting agent are the next two pieces.
+**Running in production.** Orbis imports this package and checks every new report
+overnight; findings reach the report's owner as a notification and an email. 75 tests.
+
+The checks run inside the consuming app, not here. That is deliberate: no trip data,
+no report text and no third-party contact details have to leave an application to be
+checked.
+
+Roughly half the checks in the Orbis domain model are implemented. Still to come: the
+remaining deterministic ones (`AGG-01..03`, the rest of `COV`, `DATE-03`, `LINK-03`,
+`ORG-01`), the judgement pass, and the behavioural-telemetry half.
+
+### A note on false positives
+
+Every check here has produced at least one, and each was found by running against a
+real generated report rather than a fixture. A table row's number binding to the row
+beneath it; a ratio read as a count; a figure in parentheses read as absent; a name
+with an em dash read as a different name; a whole table read as one paragraph.
+
+Fixtures agree with whoever wrote them. Before trusting a new check, run it over real
+output and read every finding — a checker's first findings are as likely to be its own
+bugs as the app's.
