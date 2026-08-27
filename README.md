@@ -83,6 +83,25 @@ Judgement checks — does the summary address the stated objectives, is a claim
 supported by the data — need a model and run in a separate pass. They are
 deliberately **not** in this registry.
 
+## Behavioural checks
+
+The other half. Reports are checked against the data they describe; behaviour is
+checked against itself, because nobody supplies a "correct" answer for how an
+application should feel.  takes a window of events and looks for
+shapes that only appear when something is wrong.
+
+| Id | What it catches |
+|---|---|
+|  | A control several people click and get nothing from |
+|  | An error that keeps happening and is never reported |
+|  | A request that keeps failing behind a spinner |
+
+Every one asks the same question first: **did this happen to several different
+people?** One person clicking a button eleven times has had a bad afternoon;
+three people clicking it means the button is lying about being clickable. Both a
+minimum number of people and a minimum number of occurrences must be met —
+either alone reports coincidences.
+
 ## Adding an app
 
 1. Write its domain model as prose and **have its owner correct it**. This step is the

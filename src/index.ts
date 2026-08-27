@@ -34,3 +34,13 @@ export {
   parseSections,
   parseTables,
 } from "./parse.js";
+
+/**
+ * The behavioural half: findings from what people did, rather than from what a
+ * document says. Same idea, different evidence — and the same rule that a check
+ * which did not run is never reported as a check that passed.
+ */
+export { runSignals } from "./signals/run.js";
+export type { SignalResult } from "./signals/run.js";
+export { SIGNAL_CHECKS } from "./signals/checks.js";
+export type { BehaviourEvent, SignalConfig, SignalCheck, SignalContext } from "./signals/types.js";
