@@ -87,14 +87,14 @@ deliberately **not** in this registry.
 
 The other half. Reports are checked against the data they describe; behaviour is
 checked against itself, because nobody supplies a "correct" answer for how an
-application should feel.  takes a window of events and looks for
+application should feel. `runSignals()` takes a window of events and looks for
 shapes that only appear when something is wrong.
 
 | Id | What it catches |
 |---|---|
-|  | A control several people click and get nothing from |
-|  | An error that keeps happening and is never reported |
-|  | A request that keeps failing behind a spinner |
+| `SIG-01` | A control several people click and get nothing from |
+| `SIG-02` | An error that keeps happening and is never reported |
+| `SIG-03` | A request that keeps failing behind a spinner |
 
 Every one asks the same question first: **did this happen to several different
 people?** One person clicking a button eleven times has had a bad afternoon;
@@ -121,16 +121,22 @@ npm test
 
 ## Status
 
-**Running in production.** Orbis imports this package and checks every new report
-overnight; findings reach the report's owner as a notification and an email. 75 tests.
+**Report checks run in production.** Orbis imports this package and checks every new
+report overnight, and its aggregate briefing as it is generated; findings reach the
+owner as a notification and an email. 92 tests.
 
 The checks run inside the consuming app, not here. That is deliberate: no trip data,
 no report text and no third-party contact details have to leave an application to be
 checked.
 
-Roughly half the checks in the Orbis domain model are implemented. Still to come: the
-remaining deterministic ones (`AGG-01..03`, the rest of `COV`, `DATE-03`, `LINK-03`,
-`ORG-01`), the judgement pass, and the behavioural-telemetry half.
+**The behavioural checks have never seen real traffic.** Capture went live on
+2026-08-26; the first events of consequence will come from trips in September and
+October. Until then `SIG-01..03` are fixture-tested only, and the note below says why
+that is worth being nervous about.
+
+Roughly half the report checks in the Orbis domain model are implemented. Still to
+come: the remaining deterministic ones (`AGG-01..03`, the rest of `COV`, `DATE-03`,
+`LINK-03`, `ORG-01`), and the judgement pass.
 
 ### A note on false positives
 
