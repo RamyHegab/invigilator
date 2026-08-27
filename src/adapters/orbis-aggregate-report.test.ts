@@ -1,10 +1,19 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
 import { runChecks } from "../run.js";
 import { toAggregateFacts } from "./orbis-aggregate-report.js";
 import type { AppConfig } from "../types.js";
 
-const config = JSON.parse(readFileSync(new URL("../../config/orbis-aggregate.json", import.meta.url), "utf8")) as AppConfig;
+// Mirrors config/orbis-aggregate.json. Inlined rather than read from disk so
+// the test needs no filesystem and no Node types.
+const config: AppConfig = {
+  appId: "orbis-aggregate",
+  sections: [
+    { name: "Key Takeaways", required: true },
+    { name: "Leads Generated", required: true },
+    { name: "Notable Outcomes by Country", required: true },
+  ],
+  disabledChecks: { "DATE-01": "n/a", "LINK-02": "n/a", "STR-02": "n/a", "ATTR-01": "n/a" },
+};
 
 const facts = () =>
   toAggregateFacts({
