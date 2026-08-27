@@ -1,0 +1,15 @@
+{
+  "appId": "orbis-aggregate",
+  "domainModel": "docs/domain-model.md (in the Orbis repo), AGG-01..03",
+  "sections": [
+    { "name": "Key Takeaways", "required": true },
+    { "name": "Leads Generated", "required": true },
+    { "name": "Notable Outcomes by Country", "required": true }
+  ],
+  "disabledChecks": {
+    "DATE-01": "The briefing summarises a period and reasonably refers to dates inside individual trips, which are not the period's own boundaries.",
+    "LINK-02": "The summary is prose for an executive; it is not required to carry the app's links.",
+    "STR-02": "No tables are mandated in the summary -- the report's own tables are rendered from data alongside it.",
+    "ATTR-01": "The briefing summarises across trips and does not attribute individual visits."
+  }
+}

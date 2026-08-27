@@ -138,6 +138,14 @@ export type CountFact = {
   value: number;
   /** Other wordings for the same thing: "sectors", "flights". */
   aliases?: string[];
+  /**
+   * Only check this count inside the named section.
+   *
+   * A portfolio total is a claim about the whole; a section headed "Outcomes by
+   * Country" makes claims about parts. Checking "3 agent visits" in a country
+   * section against a portfolio total of ten reports a correct sentence.
+   */
+  section?: string;
 };
 
 export type SourceFacts = {

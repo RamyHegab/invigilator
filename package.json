@@ -15,6 +15,11 @@
     "./adapters/orbis-trip-report": {
       "types": "./dist/adapters/orbis-trip-report.d.ts",
       "import": "./dist/adapters/orbis-trip-report.js"
+    },
+    "./config/orbis-aggregate.json": "./config/orbis-aggregate.json",
+    "./adapters/orbis-aggregate-report": {
+      "types": "./dist/adapters/orbis-aggregate-report.d.ts",
+      "import": "./dist/adapters/orbis-aggregate-report.js"
     }
   },
   "files": [

@@ -1,4 +1,5 @@
 import type { Check, Finding } from "../types.js";
+import { sectionScope } from "../parse.js";
 
 /**
  * Numbers the report states about itself.
@@ -50,9 +51,10 @@ export const statedCounts: Check = {
 
     // Line by line: a table row ending "| 25 |" followed by a row beginning
     // "| Recruitment events |" is not a claim that there were 25 of them.
-    const lines = artifact.split(String.fromCharCode(10)).map((l) => l.replace(String.fromCharCode(13), ""));
-
     for (const count of facts.counts) {
+      const lines = sectionScope(artifact, count.section)
+        .split(String.fromCharCode(10))
+        .map((l) => l.replace(String.fromCharCode(13), ""));
       const phrases = [count.label, ...(count.aliases ?? [])]
         .map((p) => tokenise(p))
         .filter((p) => p.length > 0);
