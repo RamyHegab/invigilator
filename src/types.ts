@@ -61,6 +61,17 @@ export type Attribution = {
   subject: string;
   aliases?: string[];
   /**
+   * What kind of claim this is, in words that finish "credits X with …":
+   * "the visit to", "organising".
+   *
+   * Not decoration. Two different claims can share a subject — who *ran* an
+   * event and who *attended* it — and without something to tell them apart they
+   * look like one claim with two contradictory answers, which the ambiguity
+   * guard then drops. That would silently disable both checks on exactly the
+   * events that have the most riding on them.
+   */
+  relation?: string;
+  /**
    * Who the source says did it. **Null means the source names nobody**, and the
    * artifact naming somebody anyway is an invention.
    */
@@ -173,6 +184,13 @@ export type SectionSpec = {
   required: boolean;
   /** When set, the section must contain a table with these column headers. */
   tableColumns?: string[];
+  /**
+   * Columns in that table which must carry a real answer.
+   *
+   * An owner column reading "TBC" is a row that looks like a commitment and
+   * obliges nobody. Checked by STR-05.
+   */
+  noPlaceholderColumns?: string[];
   /**
    * Dates here may fall outside the period, and are not flagged.
    *

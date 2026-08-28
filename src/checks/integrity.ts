@@ -91,6 +91,18 @@ export const noPersonalData: Check = {
 };
 
 /**
+ * A cell that fills a column without answering it.
+ *
+ * Kept to wordings that mean "not decided" and nothing else. "Various" or
+ * "the agent" are vague, but they are still answers — flagging vagueness would
+ * put this check into judgement, where it does not belong.
+ */
+const PLACEHOLDER =
+  /^(tbc|tbd|t\.b\.c\.?|n\/a|na|none|null|-+|–|—|\?+|to be confirmed|to be decided|unknown|pending)$/i;
+
+const isPlaceholder = (cell: string): boolean => cell === "" || PLACEHOLDER.test(cell.trim());
+
+/**
  * The artifact has the shape this app's template calls for.
  *
  * Section structure is per-app configuration, never hardcoded: one
@@ -138,15 +150,40 @@ export const structure: Check = {
           t.columns.some((actual) => normaliseHeading(actual).toLowerCase() === c.toLowerCase()),
         ),
       );
-      if (match) continue;
-      findings.push({
-        checkId: "STR-03",
-        severity: "warning",
-        summary: `"${spec.name}" does not contain the table it should.`,
-        detail: `Expected columns: ${spec.tableColumns.join(" | ")}. Found ${
-          tables.length ? tables.map((t) => t.columns.join(" | ")).join(" ; ") : "no table"
-        }.`,
-      });
+      if (!match) {
+        findings.push({
+          checkId: "STR-03",
+          severity: "warning",
+          summary: `"${spec.name}" does not contain the table it should.`,
+          detail: `Expected columns: ${spec.tableColumns.join(" | ")}. Found ${
+            tables.length ? tables.map((t) => t.columns.join(" | ")).join(" ; ") : "no table"
+          }.`,
+        });
+        continue;
+      }
+
+      // Columns whose whole purpose is to carry a commitment. "TBC" in an
+      // owner or a due date is a row that looks like an action and obliges
+      // nobody -- the most common way a follow-up list quietly means nothing.
+      for (const column of spec.noPlaceholderColumns ?? []) {
+        const at = match.columns.findIndex(
+          (actual) => normaliseHeading(actual).toLowerCase() === column.toLowerCase(),
+        );
+        if (at === -1) continue;
+        for (const [i, row] of match.rows.entries()) {
+          const cell = (row[at] ?? "").replace(/[*_`]/g, "").trim();
+          if (!isPlaceholder(cell)) continue;
+          findings.push({
+            checkId: "STR-05",
+            severity: "warning",
+            summary: `Row ${i + 1} of "${spec.name}" leaves ${column} as ${cell || "empty"}.`,
+            detail:
+              "An action with no owner or no date is not an action. It reads as a commitment " +
+              "and creates none, and nobody is ever chased for it.",
+            evidence: row.join(" | ").slice(0, 160),
+          });
+        }
+      }
     }
 
     for (const spec of config.sections) {

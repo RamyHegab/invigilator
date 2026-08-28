@@ -51,6 +51,15 @@ export type OrbisTripInput = {
    */
   staff?: Array<{ id: string; name: string }>;
   /**
+   * Every agency the institution knows, not merely the ones on this trip.
+   *
+   * An organiser invented for an event is only recognisable as *wrong* against
+   * the set of names that exist. Limited to this trip's agencies, the check can
+   * see a missing name but not a substituted one -- and the substitution is the
+   * failure that matters, because it reads as a fact.
+   */
+  agencies?: string[];
+  /**
    * Lead figures already aggregated by the app, from `computeLeadMetrics`.
    *
    * Taken pre-computed rather than recomputed here on purpose: the report and
@@ -114,6 +123,19 @@ export function toSourceFacts(input: OrbisTripInput): SourceFacts {
   const entities: Entity[] = [];
   const links: LinkFact[] = [];
   const attributions: Attribution[] = [];
+  const organiserOf: Attribution[] = [];
+  // Every agency this trip touched: the set an invented organiser is spotted
+  // against. Without it the check can only see that the right name is absent.
+  const agencyNames = Array.from(
+    new Set(
+      input.activities
+        .map((a) => a.agents?.trading_name?.trim() || a.manual_agent?.trim() || "")
+        .filter(Boolean),
+    ),
+  );
+  const organiserCandidates = (input.agencies?.length ? input.agencies : agencyNames)
+    .map((n) => n.trim())
+    .filter(Boolean);
   const staffNames = (input.staff ?? []).map((s) => s.name.trim()).filter(Boolean);
   const staffById = new Map((input.staff ?? []).map((s) => [s.id, s.name.trim()]));
 
@@ -156,6 +178,21 @@ export function toSourceFacts(input: OrbisTripInput): SourceFacts {
       });
     }
 
+    // Who organised this event -- ORG-01, and no new check needed for it. An
+    // organiser is an attribution like any other: a claim about who was
+    // responsible, checkable against a record that either names one or does
+    // not. Where the record names nobody, a report that credits an organiser
+    // anyway has invented one, which is the half of ORG-01 that matters.
+    if (a.type === "recruitment_event" && a.title?.trim() && organiserCandidates.length) {
+      organiserOf.push({
+        subject: a.title.trim(),
+        relation: "organising",
+        aliases: withoutPeriod(a.title) !== a.title.trim() ? [withoutPeriod(a.title)] : undefined,
+        expected: a.agents?.trading_name?.trim() || a.manual_agent?.trim() || null,
+        candidates: organiserCandidates,
+      });
+    }
+
     // Who made this visit, if the report says at all. The subject is whatever
     // the report would call the visit: the agency, the school, the event.
     if (staffNames.length && VISIT_TYPES.has(a.type)) {
@@ -167,6 +204,7 @@ export function toSourceFacts(input: OrbisTripInput): SourceFacts {
       if (subject) {
         attributions.push({
           subject,
+          relation: "the visit to",
           expected: a.visited_by ? (staffById.get(a.visited_by) ?? null) : null,
           candidates: staffNames,
         });
@@ -317,7 +355,7 @@ export function toSourceFacts(input: OrbisTripInput): SourceFacts {
     links,
     forbidden: Array.from(forbidden),
     counts,
-    attributions,
+    attributions: [...attributions, ...organiserOf],
     breakdowns,
   };
 }
