@@ -102,6 +102,25 @@ three people clicking it means the button is lying about being clickable. Both a
 minimum number of people and a minimum number of occurrences must be met —
 either alone reports coincidences.
 
+## Tallies
+
+Figures an artifact presents as fact. AGG-01..03 in the Orbis domain model.
+
+| Id | What it catches |
+|---|---|
+| TAL-01 | A stated figure a recount does not support |
+| TAL-02 | A breakdown that does not add up to the whole it breaks down |
+| TAL-03 | Source records that fell into no category and vanished from both |
+
+These exist because *computed in code, therefore correct* is not true. Calculating
+a figure rather than writing it removes one failure and not the other: the sums can
+still be wrong, the categories can still fail to cover everything, and nobody thinks
+to check arithmetic the way they check prose.
+
+The app recounts, because only the app knows what its records mean. The value is
+not that the engine counts better — it is that counting twice by two routes catches
+the case where one route is wrong.
+
 ## Adding an app
 
 1. Write its domain model as prose and **have its owner correct it**. This step is the

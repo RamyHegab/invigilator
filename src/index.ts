@@ -44,3 +44,12 @@ export { runSignals } from "./signals/run.js";
 export type { SignalResult } from "./signals/run.js";
 export { SIGNAL_CHECKS } from "./signals/checks.js";
 export type { BehaviourEvent, SignalConfig, SignalCheck, SignalContext } from "./signals/types.js";
+
+/**
+ * Arithmetic, measured against a recount. Figures computed in code are not
+ * automatically right: the sums can be wrong, the categories can fail to cover
+ * everything, and a breakdown can disagree with the total it breaks down.
+ */
+export { runTallies } from "./tallies/run.js";
+export type { TallyResult } from "./tallies/run.js";
+export type { Tally, TallyConfig, Counts } from "./tallies/types.js";
