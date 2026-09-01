@@ -1,4 +1,4 @@
-import type { Attribution, Breakdown, Entity, Figure, LinkFact, SourceFacts } from "../types.js";
+import type { Attribution, Breakdown, Declaration, Entity, Figure, LinkFact, SourceFacts } from "../types.js";
 
 /**
  * Orbis → SourceFacts.
@@ -28,6 +28,13 @@ export type OrbisTripInput = {
     manual_agent?: string | null;
     /** The staff member recorded as having made the visit. Null when unknown. */
     visited_by?: string | null;
+    /**
+     * Where the activity happened. Set on travel legs and on anything given a
+     * location; often null, which is why COV-06/07 stay silent unless at least
+     * one activity on the trip has a country recorded somewhere.
+     */
+    to_country?: string | null;
+    from_country?: string | null;
     agents?: { trading_name?: string | null } | null;
     schools?: { name?: string | null; city?: string | null; country?: string | null } | null;
     agent_branches?: { branch_name?: string | null; city?: string | null; country?: string | null } | null;
@@ -347,6 +354,38 @@ export function toSourceFacts(input: OrbisTripInput): SourceFacts {
     }
   }
 
+  // Where the trip said it was going, against where its activities actually
+  // were. The two are entered separately and nothing keeps them in step, so a
+  // cancelled country sits in `destinations` for ever and a country nobody
+  // declared can quietly acquire a week of visits.
+  //
+  // A trip whose activities record no country at all produces no comparison:
+  // an empty observed list would otherwise flag every declared country as
+  // never visited, on a trip where the truth is simply that nobody filled the
+  // field in. A checker that fires on missing data teaches people to ignore it.
+  const declarations: Declaration[] = [];
+  const declaredCountries = (input.trip.destinations ?? [])
+    .map((c) => c?.trim())
+    .filter((c): c is string => Boolean(c));
+  const observedCountries = input.activities
+    .flatMap((a) => [
+      a.to_country,
+      a.from_country,
+      a.schools?.country,
+      a.agent_branches?.country,
+    ])
+    .map((c) => c?.trim())
+    .filter((c): c is string => Boolean(c));
+
+  if (declaredCountries.length && observedCountries.length) {
+    declarations.push({
+      kind: "destination country",
+      declared: declaredCountries,
+      observed: observedCountries,
+      where: "the trip's destinations",
+    });
+  }
+
   const seen = new Set<string>();
   return {
     period: { start: input.trip.start_date, end: input.trip.end_date },
@@ -357,5 +396,6 @@ export function toSourceFacts(input: OrbisTripInput): SourceFacts {
     counts,
     attributions: [...attributions, ...organiserOf],
     breakdowns,
+    declarations,
   };
 }

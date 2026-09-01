@@ -159,6 +159,33 @@ export type CountFact = {
   section?: string;
 };
 
+/**
+ * What a record said it would cover, against what it turned out to cover.
+ *
+ * Some records declare their own scope separately from the work inside them --
+ * a trip lists its destination countries, and also contains activities that
+ * each happened somewhere. Nothing makes the two agree. A country declared and
+ * never visited is a plan that quietly did not happen; a country visited and
+ * never declared is scope that crept, or a slip in data entry.
+ *
+ * Both sides are supplied by the adapter and compared to each other, not to
+ * the artifact: this is the source disagreeing with itself, which no amount of
+ * reading the report would reveal.
+ */
+export type Declaration = {
+  /** Singular, lower case, for the finding's wording -- e.g. "destination country". */
+  kind: string;
+  /** What the record declared up front. */
+  declared: string[];
+  /** What the records underneath it actually show, derived independently. */
+  observed: string[];
+  /**
+   * Where the declaration lives, for someone about to go and fix it --
+   * e.g. "the trip's destinations".
+   */
+  where?: string;
+};
+
 export type SourceFacts = {
   /** Dates in the artifact must fall inside this range, when given. */
   period?: { start: string; end: string };
@@ -177,6 +204,8 @@ export type SourceFacts = {
   attributions?: Attribution[];
   /** Breakdowns the artifact should state; checked by BRK-01..03. */
   breakdowns?: Breakdown[];
+  /** Scope declared up front vs scope actually worked; checked by COV-06/07. */
+  declarations?: Declaration[];
 };
 
 export type SectionSpec = {

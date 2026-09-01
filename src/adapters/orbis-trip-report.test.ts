@@ -80,3 +80,77 @@ describe("cost categories", () => {
     expect(v("travel") + v("hotels") + v("events")).toBe(v("total"));
   });
 });
+
+describe("declared destinations against where activities happened", () => {
+  const trip = (destinations: string[], activities: any[]): OrbisTripInput => ({
+    trip: { start_date: "2026-03-01", end_date: "2026-03-10", destinations },
+    activities,
+    hotels: [],
+    contacts: [],
+    accountCurrency: "GBP",
+  });
+
+  it("takes the country from the activity, the school and the branch alike", () => {
+    const facts = toSourceFacts(
+      trip(
+        ["Egypt", "Morocco", "Algeria"],
+        [
+          { id: "a1", type: "other", title: "Flight", to_country: "Egypt" },
+          { id: "a2", type: "school_visit", title: "School", schools: { country: "Morocco" } },
+          {
+            id: "a3",
+            type: "agent_visit",
+            title: "Agent",
+            agent_branches: { country: "Algeria" },
+          },
+        ],
+      ),
+    );
+    const d = facts.declarations?.[0];
+    expect(d?.kind).toBe("destination country");
+    expect(d?.observed).toEqual(
+      expect.arrayContaining(["Egypt", "Morocco", "Algeria"]),
+    );
+  });
+
+  it("supplies the comparison when the two disagree", () => {
+    const facts = toSourceFacts(
+      trip(["Egypt", "Algeria"], [{ id: "a1", type: "other", title: "Flight", to_country: "Egypt" }]),
+    );
+    expect(facts.declarations).toHaveLength(1);
+    expect(facts.declarations![0]!.declared).toEqual(["Egypt", "Algeria"]);
+    expect(facts.declarations![0]!.observed).toEqual(["Egypt"]);
+  });
+
+  // The guard that stops this check firing on trips where nobody filled in a
+  // country -- which is most of them. Without it, every declared destination
+  // would be reported as never visited, and the finding would be the
+  // checker's fault rather than the trip's.
+  it("says nothing when no activity records a country anywhere", () => {
+    const facts = toSourceFacts(
+      trip(["Egypt", "Algeria"], [{ id: "a1", type: "other", title: "Debrief" }]),
+    );
+    expect(facts.declarations).toEqual([]);
+  });
+
+  it("says nothing when the trip declared no destinations", () => {
+    const facts = toSourceFacts(
+      trip([], [{ id: "a1", type: "other", title: "Flight", to_country: "Egypt" }]),
+    );
+    expect(facts.declarations).toEqual([]);
+  });
+
+  it("ignores blank and whitespace-only country fields", () => {
+    const facts = toSourceFacts(
+      trip(
+        ["Egypt", "  "],
+        [
+          { id: "a1", type: "other", title: "Flight", to_country: "Egypt" },
+          { id: "a2", type: "other", title: "Transfer", to_country: "   " },
+        ],
+      ),
+    );
+    expect(facts.declarations![0]!.declared).toEqual(["Egypt"]);
+    expect(facts.declarations![0]!.observed).toEqual(["Egypt"]);
+  });
+});

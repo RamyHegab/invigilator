@@ -69,6 +69,14 @@ finding is always worth reading.
 | `BRK-02` | A part of a breakdown that is wrong, **or one the report never states at all** |
 | `BRK-03` | A ranked breakdown presented in the wrong order — a smaller item named as the largest |
 | `ATTR-01` | A person credited with something the record gives to someone else, or to nobody |
+| `COV-06` | Scope declared and never used — a country on the trip that nothing ever happened in |
+| `COV-07` | Scope used and never declared — work recorded somewhere the trip never said it was going |
+
+`COV-06/07` are the one deliberate exception to "incapable of a false positive",
+and they report as **warnings** for that reason. Both sides are free-typed, so
+"UAE" against "United Arab Emirates" is flagged. Smoothing that away needs a
+synonym list, and a wrong synonym list hides real gaps in silence — a worse
+failure than a finding a person dismisses in a second.
 
 `BRK-01..03` are what the Orbis domain model calls `LEAD-01..03`. The engine has
 no notion of a lead: a breakdown is any whole with labelled parts, so the same
@@ -142,20 +150,24 @@ npm test
 
 **Report checks run in production.** Orbis imports this package and checks every new
 report overnight, and its aggregate briefing as it is generated; findings reach the
-owner as a notification and an email. 92 tests.
+owner as a notification and an email. 136 tests.
 
 The checks run inside the consuming app, not here. That is deliberate: no trip data,
 no report text and no third-party contact details have to leave an application to be
 checked.
+
+Two of them never read the report at all. `COV-06` and `COV-07` compare a trip's
+declared destinations against the countries its activities actually happened in
+— a disagreement inside the source, which a faithful report reproduces
+faithfully and no reader can catch.
 
 **The behavioural checks have never seen real traffic.** Capture went live on
 2026-08-26; the first events of consequence will come from trips in September and
 October. Until then `SIG-01..03` are fixture-tested only, and the note below says why
 that is worth being nervous about.
 
-Roughly half the report checks in the Orbis domain model are implemented. Still to
-come: the remaining deterministic ones (`AGG-01..03`, the rest of `COV`, `DATE-03`,
-`LINK-03`, `ORG-01`), and the judgement pass.
+Most of the deterministic report checks in the Orbis domain model are implemented.
+Still to come: `COV-02` and `COV-05`, `DATE-03`, `LINK-03`, and the judgement pass.
 
 ### A note on false positives
 

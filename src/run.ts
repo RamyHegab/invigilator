@@ -5,6 +5,7 @@ import { links, noPersonalData, structure } from "./checks/integrity.js";
 import { statedCounts } from "./checks/counts.js";
 import { breakdownOrder, breakdownParts, breakdownTotal } from "./checks/breakdown.js";
 import { attribution } from "./checks/attribution.js";
+import { declaredButUnused, usedButUndeclared } from "./checks/scope.js";
 
 /**
  * Every deterministic check. Judgement checks (does the summary address the
@@ -26,6 +27,8 @@ export const CHECKS: Check[] = [
   breakdownParts,
   breakdownOrder,
   attribution,
+  declaredButUnused,
+  usedButUndeclared,
 ];
 
 export type RunResult = {
