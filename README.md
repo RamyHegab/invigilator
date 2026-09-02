@@ -174,7 +174,12 @@ Still to come: `COV-02` and `COV-05`, `DATE-03`, `LINK-03`, and the judgement pa
 Every check here has produced at least one, and each was found by running against a
 real generated report rather than a fixture. A table row's number binding to the row
 beneath it; a ratio read as a count; a figure in parentheses read as absent; a name
-with an em dash read as a different name; a whole table read as one paragraph.
+with an em dash read as a different name; a whole table read as one paragraph; a
+trip's flight home read as a country it never declared it was visiting.
+
+The last of those was found before the check had ever run in production, by
+pointing it at the four real trips in the database instead of at its own
+fixtures. It would have fired on every trip any of them ever took.
 
 Fixtures agree with whoever wrote them. Before trusting a new check, run it over real
 output and read every finding — a checker's first findings are as likely to be its own

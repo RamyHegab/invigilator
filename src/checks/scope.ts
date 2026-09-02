@@ -1,3 +1,4 @@
+import { normaliseName } from "../parse.js";
 import type { Check, Declaration, Finding } from "../types.js";
 
 /**
@@ -10,26 +11,11 @@ import type { Check, Declaration, Finding } from "../types.js";
  * that is itself wrong, which is exactly the failure no reader can catch.
  */
 
-/**
- * Free-typed names never match on the nose. Case, spacing, punctuation and a
- * trailing "the" are noise; anything past that is a real difference and is
- * meant to be reported rather than smoothed away.
- */
-function normalise(name: string): string {
-  return name
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "") // so "Cote" matches the accented spelling
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/^the /, "")
-    .trim();
-}
-
 /** Keeps the first spelling seen, so findings quote what a person typed. */
 function index(names: string[]): Map<string, string> {
   const map = new Map<string, string>();
   for (const name of names) {
-    const key = normalise(name);
+    const key = normaliseName(name);
     if (key && !map.has(key)) map.set(key, name.trim());
   }
   return map;

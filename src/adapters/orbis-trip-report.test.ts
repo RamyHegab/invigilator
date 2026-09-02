@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { toSourceFacts, type OrbisTripInput } from "./orbis-trip-report.js";
+import { declaredButUnused, usedButUndeclared } from "../checks/scope.js";
 
 /**
  * The adapter decides what counts as a legitimate link. Getting that wrong
@@ -152,5 +153,89 @@ describe("declared destinations against where activities happened", () => {
     );
     expect(facts.declarations![0]!.declared).toEqual(["Egypt"]);
     expect(facts.declarations![0]!.observed).toEqual(["Egypt"]);
+  });
+});
+
+describe("home is not a destination", () => {
+  const trip = (destinations: string[], activities: any[]): OrbisTripInput => ({
+    trip: { start_date: "2026-09-12", end_date: "2026-09-20", destinations },
+    activities,
+    hotels: [],
+    contacts: [],
+    accountCurrency: "GBP",
+  });
+
+  // The shape of all four real trips: out on the first day, back on the last.
+  // Counting the return leg reported "work was recorded in the United Kingdom,
+  // which was never declared" on essentially every trip.
+  const outAndBack = [
+    { id: "t1", type: "travel", title: "Fly out", day_date: "2026-09-12", from_country: "UK", to_country: "Egypt" },
+    { id: "t2", type: "travel", title: "Fly home", day_date: "2026-09-20", from_country: "Egypt", to_country: "United Kingdom" },
+  ];
+
+  it("leaves out the country the trip departs from and returns to", () => {
+    const facts = toSourceFacts(trip(["Egypt"], outAndBack));
+    expect(facts.declarations![0]!.observed).toEqual(["Egypt", "Egypt"]);
+  });
+
+  // A real trip records "UK" outbound and "United Kingdom" home. Excluding
+  // only one end leaves the other to be reported as an undeclared country.
+  it("excludes both spellings when the two ends are typed differently", () => {
+    const observed = toSourceFacts(trip(["Egypt"], outAndBack)).declarations![0]!.observed;
+    expect(observed.some((c) => c.toLowerCase().includes("king"))).toBe(false);
+    expect(observed).not.toContain("UK");
+  });
+
+  it("orders by date rather than trusting the order rows arrive in", () => {
+    const facts = toSourceFacts(trip(["Egypt"], [outAndBack[1], outAndBack[0]] as any[]));
+    expect(facts.declarations![0]!.observed).toEqual(["Egypt", "Egypt"]);
+  });
+
+  it("still counts a country that is worked in as well as flown through", () => {
+    const facts = toSourceFacts(
+      trip(
+        ["Egypt", "Morocco"],
+        [
+          ...outAndBack,
+          { id: "a1", type: "agent_visit", title: "Casablanca", day_date: "2026-09-15", agent_branches: { country: "Morocco" } },
+        ],
+      ),
+    );
+    expect(facts.declarations![0]!.observed).toEqual(expect.arrayContaining(["Egypt", "Morocco"]));
+  });
+
+  // A domestic trip never crosses a border, so nothing is treated as home and
+  // the declared country is observed like any other. What matters is that the
+  // checks stay quiet -- the two sides agree.
+  it("says nothing about a trip that never leaves home", () => {
+    const facts = toSourceFacts(
+      trip(["United Kingdom"], [
+        { id: "t1", type: "travel", title: "Train", day_date: "2026-09-12", from_country: "United Kingdom", to_country: "United Kingdom" },
+      ]),
+    );
+    const ctx = { config: { appId: "orbis", sections: [] }, facts, artifact: "" } as any;
+    expect([...declaredButUnused.run(ctx), ...usedButUndeclared.run(ctx)]).toEqual([]);
+  });
+
+  // The whole point, end to end: the real trips' out-and-back shape produces
+  // no finding, and a country genuinely outside the declared scope does.
+  it("stays quiet on a real out-and-back trip, and speaks up on scope creep", () => {
+    const quiet = toSourceFacts(trip(["Egypt"], outAndBack));
+    const ctx = (facts: any) =>
+      ({ config: { appId: "orbis", sections: [] }, facts, artifact: "" }) as any;
+    expect([
+      ...declaredButUnused.run(ctx(quiet)),
+      ...usedButUndeclared.run(ctx(quiet)),
+    ]).toEqual([]);
+
+    const crept = toSourceFacts(
+      trip(["Egypt"], [
+        ...outAndBack,
+        { id: "a1", type: "agent_visit", title: "Casablanca", day_date: "2026-09-15", agent_branches: { country: "Morocco" } },
+      ]),
+    );
+    const findings = usedButUndeclared.run(ctx(crept));
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.summary).toContain("Morocco");
   });
 });

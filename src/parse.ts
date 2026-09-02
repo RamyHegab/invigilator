@@ -24,6 +24,26 @@ export function normaliseHeading(raw: string): string {
     .trim();
 }
 
+/**
+ * A free-typed name reduced to what makes it that name.
+ *
+ * Case, surrounding space, punctuation, accents and a leading "the" are how
+ * people type, not what they mean: "The Gambia", "the gambia" and "Gambia" are
+ * one country. Anything past that is a real difference and is left alone --
+ * "UAE" and "United Arab Emirates" do not compare equal here, on purpose.
+ * Smoothing those together needs a synonym list, and a wrong synonym list
+ * hides real gaps in silence.
+ */
+export function normaliseName(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "") // so "Cote" matches the accented spelling
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/^the /, "")
+    .trim();
+}
+
 export function parseSections(markdown: string): Section[] {
   const lines = markdown.split(/\r?\n/);
   const sections: Section[] = [];

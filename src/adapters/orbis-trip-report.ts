@@ -1,3 +1,4 @@
+import { normaliseName } from "../parse.js";
 import type { Attribution, Breakdown, Declaration, Entity, Figure, LinkFact, SourceFacts } from "../types.js";
 
 /**
@@ -35,6 +36,8 @@ export type OrbisTripInput = {
      */
     to_country?: string | null;
     from_country?: string | null;
+    /** Orders the travel legs, so the first departure and last arrival are known. */
+    day_date?: string | null;
     agents?: { trading_name?: string | null } | null;
     schools?: { name?: string | null; city?: string | null; country?: string | null } | null;
     agent_branches?: { branch_name?: string | null; city?: string | null; country?: string | null } | null;
@@ -367,6 +370,40 @@ export function toSourceFacts(input: OrbisTripInput): SourceFacts {
   const declaredCountries = (input.trip.destinations ?? [])
     .map((c) => c?.trim())
     .filter((c): c is string => Boolean(c));
+  // Home is not a destination. In practice only travel legs carry a country,
+  // and every trip ends with a flight back -- so counting them naively reports
+  // "work was recorded in the United Kingdom, which was never declared" on
+  // essentially every trip. Found by running this against the four real trips
+  // rather than against fixtures, which agreed with me.
+  //
+  // The trip departs from home and returns to it, so both ends are taken:
+  // the same trip really does record "UK" outbound and "United Kingdom" home,
+  // and only excluding both keeps the check quiet.
+  // Only legs that actually cross a border count. A domestic hop recorded as
+  // Turkey-to-Turkey is not the journey home, and on a real trip one of those
+  // shares the last day with the flight back.
+  const moves = input.activities
+    .filter((a) => {
+      const from = a.from_country?.trim();
+      const to = a.to_country?.trim();
+      return from && to && normaliseName(from) !== normaliseName(to);
+    })
+    .slice()
+    .sort((x, y) => (x.day_date ?? "").localeCompare(y.day_date ?? ""));
+
+  const home = new Set<string>();
+  // Wherever the trip set out from is home.
+  const origin = moves[0]?.from_country?.trim();
+  if (origin) home.add(normaliseName(origin));
+  // And wherever it ended up, but only once it has come back from somewhere.
+  // A trip with a single outbound leg -- one being planned, or a report
+  // generated before the return flight is entered -- would otherwise have its
+  // destination taken for home and be reported as never visited.
+  if (moves.length > 1) {
+    const arrival = moves[moves.length - 1]?.to_country?.trim();
+    if (arrival) home.add(normaliseName(arrival));
+  }
+
   const observedCountries = input.activities
     .flatMap((a) => [
       a.to_country,
@@ -375,7 +412,8 @@ export function toSourceFacts(input: OrbisTripInput): SourceFacts {
       a.agent_branches?.country,
     ])
     .map((c) => c?.trim())
-    .filter((c): c is string => Boolean(c));
+    .filter((c): c is string => Boolean(c))
+    .filter((c) => !home.has(normaliseName(c)));
 
   if (declaredCountries.length && observedCountries.length) {
     declarations.push({
