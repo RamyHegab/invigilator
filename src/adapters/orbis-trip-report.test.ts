@@ -239,3 +239,78 @@ describe("home is not a destination", () => {
     expect(findings[0]!.summary).toContain("Morocco");
   });
 });
+
+describe("branches a report may name", () => {
+  const trip = (activities: any[]): OrbisTripInput => ({
+    trip: { start_date: "2026-09-12", end_date: "2026-09-20", destinations: ["Egypt"] },
+    activities,
+    hotels: [],
+    contacts: [],
+    accountCurrency: "GBP",
+  });
+
+  const permitted = (facts: any, subject: string) =>
+    facts.qualifiers.find((q: any) => q.subject === subject)?.permitted ?? [];
+
+  // Real rows from the live database. Most activities have no linked branch
+  // record while their title still names one, and the trip UI composes that
+  // title on purpose -- the domain model calls it the authoritative source.
+  // Reading only the linked row reported about twenty correct titles per trip
+  // as invented.
+  it("takes the branch from the title when no branch row is linked", () => {
+    const facts = toSourceFacts(
+      trip([
+        { id: "a1", type: "agent_visit", title: "Global Study — Zamalek Office", agent_id: "g", agents: { trading_name: "Global Study" } },
+        { id: "a2", type: "agent_visit", title: "Global Study — Maadi Office", agent_id: "g", agents: { trading_name: "Global Study" } },
+      ]),
+    );
+    expect(permitted(facts, "Global Study")).toEqual(["Zamalek Office", "Maadi Office"]);
+  });
+
+  it("takes the linked branch row as well", () => {
+    const facts = toSourceFacts(
+      trip([
+        { id: "a1", type: "agent_visit", title: "Academix — Taksim Ofisi", agent_id: "a", agents: { trading_name: "Academix" }, agent_branches: { branch_name: "Ankara Ofisi" } },
+      ]),
+    );
+    expect(permitted(facts, "Academix")).toEqual(expect.arrayContaining(["Ankara Ofisi", "Taksim Ofisi"]));
+  });
+
+  it("keeps a branch name that itself contains a dash", () => {
+    const facts = toSourceFacts(
+      trip([
+        { id: "a1", type: "agent_visit", title: "ICAN — IDP - Istanbul Office", agent_id: "i", agents: { trading_name: "ICAN" } },
+      ]),
+    );
+    expect(permitted(facts, "ICAN")).toEqual(["IDP - Istanbul Office"]);
+  });
+
+  it("handles an agency whose own name contains a dash", () => {
+    const facts = toSourceFacts(
+      trip([
+        { id: "a1", type: "agent_visit", title: "SI-UK — Istanbul branch", agent_id: "s", agents: { trading_name: "SI-UK" } },
+      ]),
+    );
+    expect(permitted(facts, "SI-UK")).toEqual(["Istanbul branch"]);
+  });
+
+  // "School visits" and "GSUK Morocco Fair - OCT 2026 - Tangier" are both real
+  // titles on an agency's activities. Neither names a branch, and reading a
+  // branch out of them would invent one to check against.
+  it("reads no branch from a title that does not begin with the agency", () => {
+    const facts = toSourceFacts(
+      trip([
+        { id: "a1", type: "recruitment_event", title: "GSUK Morocco Fair - OCT 2026 - Tangier", agent_id: "g", agents: { trading_name: "Global Study" } },
+        { id: "a2", type: "agent_visit", title: "School visits", agent_id: "g", agents: { trading_name: "Global Study" } },
+      ]),
+    );
+    expect(permitted(facts, "Global Study")).toEqual([]);
+  });
+
+  it("still lists an agency with no branch at all, so an invented one is caught", () => {
+    const facts = toSourceFacts(
+      trip([{ id: "a1", type: "agent_visit", title: "School visits", agent_id: "g", agents: { trading_name: "Global Study" } }]),
+    );
+    expect(facts.qualifiers!.map((q) => q.subject)).toContain("Global Study");
+  });
+});

@@ -186,6 +186,28 @@ export type Declaration = {
   where?: string;
 };
 
+/**
+ * A named thing, and the only sub-names the record allows to follow it.
+ *
+ * Reports write "Agency — Branch", "Supplier (Depot)", "Hospital, Ward". The
+ * first half is checked by every other check here; the second half is checked
+ * by nothing, and is exactly where a model invents. Asked for a detail it was
+ * never given, it will either leave it out or make one up, and the made-up one
+ * reads like a fact.
+ *
+ * `permitted` is the closed set for this artifact -- not everything that exists,
+ * but what this record actually attaches to that subject. A real branch of the
+ * right agency, on the wrong trip, is still wrong in this report.
+ */
+export type Qualifier = {
+  /** The thing being qualified, exactly as the record spells it. */
+  subject: string;
+  /** Singular, lower case, for the finding's wording -- e.g. "branch". */
+  kind: string;
+  /** Every sub-name the record permits here. Empty means none is allowed. */
+  permitted: string[];
+};
+
 export type SourceFacts = {
   /** Dates in the artifact must fall inside this range, when given. */
   period?: { start: string; end: string };
@@ -206,6 +228,8 @@ export type SourceFacts = {
   breakdowns?: Breakdown[];
   /** Scope declared up front vs scope actually worked; checked by COV-06/07. */
   declarations?: Declaration[];
+  /** Sub-names an artifact may attach to a named thing; checked by QUAL-01. */
+  qualifiers?: Qualifier[];
 };
 
 export type SectionSpec = {

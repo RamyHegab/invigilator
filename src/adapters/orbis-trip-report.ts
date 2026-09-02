@@ -1,5 +1,5 @@
 import { normaliseName } from "../parse.js";
-import type { Attribution, Breakdown, Declaration, Entity, Figure, LinkFact, SourceFacts } from "../types.js";
+import type { Attribution, Breakdown, Declaration, Qualifier, Entity, Figure, LinkFact, SourceFacts } from "../types.js";
 
 /**
  * Orbis → SourceFacts.
@@ -111,6 +111,25 @@ const MONTHS =
  */
 function withoutPeriod(title: string): string {
   return title.replace(MONTHS, " ").replace(/\s+/g, " ").replace(/^[\s\-–—]+|[\s\-–—]+$/g, "").trim();
+}
+
+/**
+ * The branch half of an activity title like "Global Study - Zamalek Office".
+ *
+ * Returns null when the title is not of that shape -- "School visits", or a
+ * fair title that merely mentions the agency. Only a title that *starts* with
+ * the agency name and a dash is treated as naming its branch, so a sentence
+ * that happens to contain the name does not contribute a phantom branch.
+ */
+function branchInTitle(title: string, agency: string): string | null {
+  const t = (title ?? "").trim();
+  const a = agency.trim();
+  if (!t || !a || t.length <= a.length) return null;
+  if (t.slice(0, a.length).toLowerCase() !== a.toLowerCase()) return null;
+  const rest = t.slice(a.length);
+  const m = rest.match(/^[ \t]*[-–—][ \t]*(.+)$/);
+  const branch = m?.[1]?.trim();
+  return branch ? branch : null;
 }
 
 /** Same event, same section, one thing to say. Multi-day fairs are separate rows. */
@@ -424,6 +443,40 @@ export function toSourceFacts(input: OrbisTripInput): SourceFacts {
     });
   }
 
+  // Every branch this trip actually records for each agency, so a branch the
+  // report attaches to one is checkable. The report prompt used to require
+  // "Agency - Branch" titles while the branch was never in the context, so the
+  // model invented them; they read as fact and nothing could contradict them.
+  //
+  // An agency that appears on the trip with no branch recorded still gets an
+  // entry with an empty list -- "the record gives it none" is a finding, not a
+  // reason to skip. That is the exact case that produced the invented names.
+  const branchesByAgency = new Map<string, Set<string>>();
+  for (const a of input.activities) {
+    const agency = a.agents?.trading_name?.trim();
+    if (!agency) continue;
+    if (!branchesByAgency.has(agency)) branchesByAgency.set(agency, new Set());
+    const branch = a.agent_branches?.branch_name?.trim();
+    if (branch) branchesByAgency.get(agency)!.add(branch);
+
+    // The activity's own title counts as a record of the branch, because in
+    // this app it is one. `branch_id` is null on most real activities while
+    // the title still reads "Global Study - Zamalek Office", and the trip UI
+    // composes that title deliberately; the domain model calls it the
+    // authoritative source and has the report reproduce it verbatim.
+    //
+    // Taking only the linked row would report about twenty correct titles per
+    // trip as invented -- found by running this against the live database
+    // before trusting it.
+    const fromTitle = branchInTitle(a.title, agency);
+    if (fromTitle) branchesByAgency.get(agency)!.add(fromTitle);
+  }
+  const qualifiers: Qualifier[] = [...branchesByAgency].map(([subject, branches]) => ({
+    subject,
+    kind: "branch",
+    permitted: [...branches],
+  }));
+
   const seen = new Set<string>();
   return {
     period: { start: input.trip.start_date, end: input.trip.end_date },
@@ -435,5 +488,6 @@ export function toSourceFacts(input: OrbisTripInput): SourceFacts {
     attributions: [...attributions, ...organiserOf],
     breakdowns,
     declarations,
+    qualifiers,
   };
 }

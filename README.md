@@ -69,6 +69,7 @@ finding is always worth reading.
 | `BRK-02` | A part of a breakdown that is wrong, **or one the report never states at all** |
 | `BRK-03` | A ranked breakdown presented in the wrong order — a smaller item named as the largest |
 | `ATTR-01` | A person credited with something the record gives to someone else, or to nobody |
+| `QUAL-01` | A sub-name attached to a real thing that the record never gave it — "Agency — Branch" where the branch does not exist |
 | `COV-06` | Scope declared and never used — a country on the trip that nothing ever happened in |
 | `COV-07` | Scope used and never declared — work recorded somewhere the trip never said it was going |
 
@@ -86,6 +87,12 @@ three checks serve an invoice's line items or a cohort's age bands unchanged.
 is *not* in the report. It exists because of a real failure that every other
 check passed: a report stated five leads captured and then said no study-level
 split had been recorded, while the database held three UG and one PGT.
+
+`QUAL-01` is `LINK-03` in the Orbis domain model, and has the clearest cause of
+any check here: the report prompt required agent-visit titles to read
+"Agency - Branch" while the branch was never included in the context, so the
+model invented plausible ones. An invented branch is unfalsifiable by reading --
+the agency is real, the format is right, and the branch simply does not exist.
 
 Judgement checks — does the summary address the stated objectives, is a claim
 supported by the data — need a model and run in a separate pass. They are
@@ -150,7 +157,7 @@ npm test
 
 **Report checks run in production.** Orbis imports this package and checks every new
 report overnight, and its aggregate briefing as it is generated; findings reach the
-owner as a notification and an email. 136 tests.
+owner as a notification and an email. 162 tests.
 
 The checks run inside the consuming app, not here. That is deliberate: no trip data,
 no report text and no third-party contact details have to leave an application to be
@@ -167,7 +174,7 @@ October. Until then `SIG-01..03` are fixture-tested only, and the note below say
 that is worth being nervous about.
 
 Most of the deterministic report checks in the Orbis domain model are implemented.
-Still to come: `COV-02` and `COV-05`, `DATE-03`, `LINK-03`, and the judgement pass.
+Still to come: `COV-02` and `COV-05`, `DATE-03`, and the judgement pass.
 
 ### A note on false positives
 
@@ -180,6 +187,20 @@ trip's flight home read as a country it never declared it was visiting.
 The last of those was found before the check had ever run in production, by
 pointing it at the four real trips in the database instead of at its own
 fixtures. It would have fired on every trip any of them ever took.
+
+`QUAL-01` was caught the same way and is worth stating plainly, because the
+first version of it would have been unusable. It read the branch only from the
+linked `agent_branches` row — but on live data that row is null on most
+activities while the title still reads "Global Study — Zamalek Office", which
+the app composes deliberately and the report reproduces verbatim. It would have
+reported roughly twenty correct titles per trip as invented.
+
+**`QUAL-01` has never been run against a real generated report**, because none
+are stored any more — they were deleted with the trips they described. It was
+validated against the live itinerary titles instead, which is the same text a
+faithful report contains, and against an invented branch spliced into them. That
+is weaker evidence than the other checks have, and the one-off sweep for
+invented branches that the domain model asked for can no longer be done.
 
 Fixtures agree with whoever wrote them. Before trusting a new check, run it over real
 output and read every finding — a checker's first findings are as likely to be its own

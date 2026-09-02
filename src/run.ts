@@ -6,6 +6,7 @@ import { statedCounts } from "./checks/counts.js";
 import { breakdownOrder, breakdownParts, breakdownTotal } from "./checks/breakdown.js";
 import { attribution } from "./checks/attribution.js";
 import { declaredButUnused, usedButUndeclared } from "./checks/scope.js";
+import { qualifiers } from "./checks/qualifier.js";
 
 /**
  * Every deterministic check. Judgement checks (does the summary address the
@@ -29,6 +30,7 @@ export const CHECKS: Check[] = [
   attribution,
   declaredButUnused,
   usedButUndeclared,
+  qualifiers,
 ];
 
 export type RunResult = {
