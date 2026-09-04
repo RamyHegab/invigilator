@@ -66,6 +66,32 @@ describe("school directory link", () => {
   });
 });
 
+describe("total activity count (COV-05)", () => {
+  it("counts every activity on the trip, whatever its type", () => {
+    const facts = toSourceFacts(
+      input([
+        { id: "a1", type: "travel", title: "Flight" },
+        { id: "a2", type: "agent_visit", title: "Visit" },
+        { id: "a3", type: "resting_day", title: "Weekend" },
+      ]),
+    );
+    const total = facts.counts!.find((c) => c.label === "activities");
+    expect(total?.value).toBe(3);
+  });
+
+  it("scopes the total to the Trip Overview section", () => {
+    const facts = toSourceFacts(input([{ id: "a1", type: "travel", title: "Flight" }]));
+    expect(facts.counts!.find((c) => c.label === "activities")?.section).toBe("Trip Overview");
+  });
+
+  it("is zero on a trip with no activities yet, not absent", () => {
+    // Absent would make CNT-01 skip the count entirely; a trip newly created
+    // and correctly reporting zero activities is a real, checkable claim.
+    const facts = toSourceFacts(input([]));
+    expect(facts.counts!.find((c) => c.label === "activities")?.value).toBe(0);
+  });
+});
+
 describe("cost categories", () => {
   it("puts every non-travel cost under Events so the parts sum to the total", () => {
     const facts = toSourceFacts(

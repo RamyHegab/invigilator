@@ -67,3 +67,55 @@ describe("stated counts", () => {
     expect(runChecks("Eight flights.", noCounts, config).findings.filter((f) => f.checkId === "CNT-01")).toEqual([]);
   });
 });
+
+describe("a count stated in a markdown table cell", () => {
+  // The Orbis prompt asks for exactly this shape in the Trip Overview table:
+  // "| Field | Detail |" with the label in one cell and the number in the
+  // next. The label comes first and the number after it -- the opposite
+  // order from prose -- which the original backward-only search could not
+  // see at all, found while wiring this up for COV-05.
+  const overviewFacts = (): SourceFacts => ({
+    entities: [],
+    figures: [],
+    links: [],
+    forbidden: [],
+    counts: [{ label: "activities", value: 20, aliases: ["total activities"] }],
+  });
+  const find = (md: string) =>
+    runChecks(md, overviewFacts(), config).findings.filter((f) => f.checkId === "CNT-01");
+
+  it("catches a wrong count stated after the label in a table row", () => {
+    const f = find("| Total Activities | 25 |");
+    expect(f).toHaveLength(1);
+    expect(f[0]!.summary).toContain("25");
+    expect(f[0]!.summary).toContain("20");
+  });
+
+  it("accepts a correct count stated after the label", () => {
+    expect(find("| Total Activities | 20 |")).toEqual([]);
+  });
+
+  it("does not report the same occurrence twice when checked in one line", () => {
+    const f = find("| Activities | 25 |");
+    expect(f).toHaveLength(1);
+  });
+});
+
+describe("backward still wins over forward when both are present", () => {
+  it("uses the number immediately behind the phrase, not one further away after it", () => {
+    const facts: SourceFacts = {
+      entities: [],
+      figures: [],
+      links: [],
+      forbidden: [],
+      counts: [{ label: "activities", value: 6 }],
+    };
+    // "8" is immediately behind the phrase; the report's own real number, 20,
+    // sits after it. The nearer, backward one is the claim being made.
+    const f = runChecks("8 activities were logged, of a possible 20.", facts, config).findings.filter(
+      (x) => x.checkId === "CNT-01",
+    );
+    expect(f).toHaveLength(1);
+    expect(f[0]!.summary).toContain("8");
+  });
+});

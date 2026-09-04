@@ -64,7 +64,7 @@ finding is always worth reading.
 | `LINK-02` | A required link the report failed to include |
 | `PII-01/02/03` | Email addresses, phone numbers, third-party contact names |
 | `STR-01..04` | Missing sections, wrong order, a mandated table absent, an empty section |
-| `CNT-01` | A count the report asserts about itself that the data contradicts |
+| `CNT-01` | A count the report asserts about itself that the data contradicts — COV-05 in the Orbis domain model is the Trip Overview's own "total activities" figure, checked the same way |
 | `BRK-01` | The whole of a breakdown — a stated total that is not the total |
 | `BRK-02` | A part of a breakdown that is wrong, **or one the report never states at all** |
 | `BRK-03` | A ranked breakdown presented in the wrong order — a smaller item named as the largest |
@@ -177,7 +177,7 @@ npm test
 
 **Report checks run in production.** Orbis imports this package and checks every new
 report overnight, and its aggregate briefing as it is generated; findings reach the
-owner as a notification and an email. 176 tests.
+owner as a notification and an email. 183 tests.
 
 The checks run inside the consuming app, not here. That is deliberate: no trip data,
 no report text and no third-party contact details have to leave an application to be
@@ -194,7 +194,7 @@ October. Until then `SIG-01..03` are fixture-tested only, and the note below say
 that is worth being nervous about.
 
 Most of the deterministic report checks in the Orbis domain model are implemented.
-Still to come: `COV-05`, `DATE-03`, and the judgement pass.
+Still to come: `DATE-03` and the judgement pass.
 
 ### A note on false positives
 
@@ -228,6 +228,20 @@ warning rather than an error for exactly that reason -- the real gap is the
 typo, not something a report can be asked to fix. Also validated: the flight
 home and its layovers do not appear as cities the report must mention, the
 same fix `COV-06/07` needed for countries, applied at city grain.
+
+`CNT-01`, wired up for `COV-05`, had never actually run against Orbis data before
+-- it existed with nothing supplying it a count scoped to the Trip Overview
+table. The bug it found was in the check itself, not the data: it only ever
+looked for a number *before* the phrase it matched ("Eight sectors of air
+travel"), and a markdown table states the label first and the number after it
+-- "| Total Activities | 25 |". Checked backward only, it would have run
+silently and caught nothing, on the exact table format the report prompt asks
+for. It now checks both directions, nearest number wins. Fixing that surfaced
+a second bug: a count with a label and an alias that both match the same table
+cell -- "activities" and "total activities" both matching "| Total Activities
+| 25 |" -- reported the one wrong number twice, as though there were two
+separate mistakes. Now one finding per count per line, however many of its
+wordings match there.
 
 Fixtures agree with whoever wrote them. Before trusting a new check, run it over real
 output and read every finding — a checker's first findings are as likely to be its own

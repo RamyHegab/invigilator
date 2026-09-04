@@ -333,6 +333,18 @@ export function toSourceFacts(input: OrbisTripInput): SourceFacts {
     { label: "agent visits", value: countOf("agent_visit"), aliases: ["agent engagements", "agent meetings"] },
     { label: "school visits", value: countOf("school_visit"), aliases: ["schools visited"] },
     { label: "recruitment events", value: countOf("recruitment_event"), aliases: ["fair days"] },
+    // COV-05: the prompt asks the Trip Overview table for a "total activities"
+    // field. Scoped to that section, not the whole report -- an unrelated use
+    // of the word "activities" elsewhere (a sentence in the summary, say)
+    // is not a claim about this number. sectionScope() falls back to the
+    // whole document if a template does not use this exact heading, so a
+    // renamed section loses precision rather than losing the check.
+    {
+      label: "activities",
+      value: input.activities.length,
+      aliases: ["total activities"],
+      section: "Trip Overview",
+    },
   ];
 
   // Lead figures: the whole, the study-level split, the course ranking.

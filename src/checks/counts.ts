@@ -9,6 +9,16 @@ import { sectionScope } from "../parse.js";
  * six travel legs, while its own overview table said six. Nothing else catches
  * that — the number was never in the source data to compare against, it was
  * asserted by the writer.
+ *
+ * The same claim is written two ways depending on where it lands. Prose states
+ * the number first -- "Eight sectors of air travel". A markdown table states
+ * the label first and the number after it in the next cell -- "| Total
+ * Activities | 25 |" reads, once punctuation is stripped, as "total activities
+ * 25". Both directions are checked, nearest number wins, and a phrase with a
+ * number immediately behind it is never also checked forward -- the two
+ * shapes do not occur in the same sentence in practice, and checking only one
+ * direction was found, when this was wired up for COV-05, to make the check
+ * silently useless against the exact table format the report prompt asks for.
  */
 
 const WORDS: Record<string, number> = {
@@ -59,17 +69,28 @@ export const statedCounts: Check = {
         .map((p) => tokenise(p))
         .filter((p) => p.length > 0);
 
+      // One finding per line per count, however many of its aliases match
+      // there. "Activities" and its own alias "total activities" both match
+      // "| Total Activities | 25 |" -- without this, the one wrong number
+      // was reported twice, as though there were two separate mistakes.
+      const reportedLines = new Set<number>();
+
       for (const phrase of phrases) {
-        for (const line of lines) {
+        for (let li = 0; li < lines.length; li++) {
+        const line = lines[li]!;
         const tokens = tokenise(line);
         for (let i = 0; i <= tokens.length - phrase.length; i++) {
           if (!phrase.every((word, k) => tokens[i + k] === word)) continue;
 
-          // Walk back over at most a few filler words for a number.
+          // Walk back over at most a few filler words for a number: "Eight
+          // sectors of air travel" states the count before naming the thing.
+          let matched = false;
           for (let back = 1; back <= LOOKBACK && i - back >= 0; back++) {
             const stated = numberFrom(tokens[i - back]!);
             if (stated === null) continue;
-            if (stated !== count.value) {
+            matched = true;
+            if (stated !== count.value && !reportedLines.has(li)) {
+              reportedLines.add(li);
               findings.push({
                 checkId: "CNT-01",
                 severity: "error",
@@ -80,6 +101,29 @@ export const statedCounts: Check = {
               });
             }
             break; // nearest number wins; do not keep walking back
+          }
+
+          // Only tried when nothing was found behind the phrase, so a
+          // sentence that happens to have a number on both sides is never
+          // reported twice. A markdown table row states the label first and
+          // the count after it -- "| Total Activities | 25 |" tokenises to
+          // "total activities 25" -- which no report written as prose ever
+          // does, so the two directions do not collide in practice.
+          for (let fwd = 0; !matched && fwd < LOOKBACK && i + phrase.length + fwd < tokens.length; fwd++) {
+            const stated = numberFrom(tokens[i + phrase.length + fwd]!);
+            if (stated === null) continue;
+            if (stated !== count.value && !reportedLines.has(li)) {
+              reportedLines.add(li);
+              findings.push({
+                checkId: "CNT-01",
+                severity: "error",
+                summary: `The report says ${stated} ${phrase.join(" ")}, but the data has ${count.value}.`,
+                detail:
+                  "A miscount in prose survives every figure check, because the number was asserted by the writer rather than copied from the source.",
+                evidence: tokens.slice(i, i + phrase.length + fwd + 1).join(" "),
+              });
+            }
+            break;
           }
         }
         }
