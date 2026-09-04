@@ -70,14 +70,34 @@ finding is always worth reading.
 | `BRK-03` | A ranked breakdown presented in the wrong order — a smaller item named as the largest |
 | `ATTR-01` | A person credited with something the record gives to someone else, or to nobody |
 | `QUAL-01` | A sub-name attached to a real thing that the record never gave it — "Agency — Branch" where the branch does not exist |
+| `COV-02` | A city the trip actually visited that the report never mentions |
 | `COV-06` | Scope declared and never used — a country on the trip that nothing ever happened in |
 | `COV-07` | Scope used and never declared — work recorded somewhere the trip never said it was going |
 
-`COV-06/07` are the one deliberate exception to "incapable of a false positive",
-and they report as **warnings** for that reason. Both sides are free-typed, so
-"UAE" against "United Arab Emirates" is flagged. Smoothing that away needs a
-synonym list, and a wrong synonym list hides real gaps in silence — a worse
-failure than a finding a person dismisses in a second.
+`COV-06/07`, and the Orbis adapter's `COV-02` city entities, are the deliberate
+exception to "incapable of a false positive", and report as **warnings** for
+that reason. All three read free-typed fields, so "UAE" against "United Arab
+Emirates" is flagged — and so is "Casablanca" against "Casablanaca", found on
+a real trip and almost certainly one place typed two ways. Smoothing that away
+needs a synonym list, and a wrong synonym list hides real gaps in silence — a
+worse failure than a finding a person dismisses in a second.
+
+`COV-02` shares its mechanism with `COV-01` rather than being a separate
+check: an `Entity` now carries an optional `checkId` and `severity`, so two
+kinds of "something that must be mentioned" can be numbered, disabled and
+scored differently while running through the same one function. The trade-off
+is that `disabledChecks` gates a whole `Check` before it runs, so `COV-01` and
+`COV-02` cannot currently be turned off independently of each other — only of
+every other check. Splitting them into two `Check` objects, each filtering
+`facts.entities` by kind, is the fix if that is ever needed.
+
+Cities can only be found where the source structurally records one: a travel
+leg's own city columns, or a linked agent branch's or school's city. A city
+named only inside a free-typed activity title -- "AHZ — New Cairo" is a Cairo
+district, "Global Study — Sheraton Office" is a hotel, neither literally says
+a city -- is not read, on purpose. Guessing which titles contain a city name
+would be inventing a fact the source does not have, which is the exact mistake
+`QUAL-01` exists to catch elsewhere.
 
 `BRK-01..03` are what the Orbis domain model calls `LEAD-01..03`. The engine has
 no notion of a lead: a breakdown is any whole with labelled parts, so the same
@@ -157,7 +177,7 @@ npm test
 
 **Report checks run in production.** Orbis imports this package and checks every new
 report overnight, and its aggregate briefing as it is generated; findings reach the
-owner as a notification and an email. 162 tests.
+owner as a notification and an email. 176 tests.
 
 The checks run inside the consuming app, not here. That is deliberate: no trip data,
 no report text and no third-party contact details have to leave an application to be
@@ -174,7 +194,7 @@ October. Until then `SIG-01..03` are fixture-tested only, and the note below say
 that is worth being nervous about.
 
 Most of the deterministic report checks in the Orbis domain model are implemented.
-Still to come: `COV-02` and `COV-05`, `DATE-03`, and the judgement pass.
+Still to come: `COV-05`, `DATE-03`, and the judgement pass.
 
 ### A note on false positives
 
@@ -201,6 +221,13 @@ validated against the live itinerary titles instead, which is the same text a
 faithful report contains, and against an invented branch spliced into them. That
 is weaker evidence than the other checks have, and the one-off sweep for
 invented branches that the domain model asked for can no longer be done.
+
+`COV-02` was caught the same way, on the same real trips: the Morocco trip
+records the same city as both "Casablanca" and "Casablanaca". Reported as a
+warning rather than an error for exactly that reason -- the real gap is the
+typo, not something a report can be asked to fix. Also validated: the flight
+home and its layovers do not appear as cities the report must mention, the
+same fix `COV-06/07` needed for countries, applied at city grain.
 
 Fixtures agree with whoever wrote them. Before trusting a new check, run it over real
 output and read every finding — a checker's first findings are as likely to be its own

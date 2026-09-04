@@ -24,8 +24,8 @@ export const coverage: Check = {
 
       const elsewhere = e.section ? names.some((n) => mentions(artifact, n)) : false;
       findings.push({
-        checkId: "COV-01",
-        severity: "error",
+        checkId: e.checkId ?? "COV-01",
+        severity: e.severity ?? "error",
         summary: elsewhere
           ? `${e.kind} "${e.label}" is mentioned, but not in "${e.section}".`
           : `The report never mentions ${e.kind} "${e.label}".`,

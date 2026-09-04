@@ -314,3 +314,108 @@ describe("branches a report may name", () => {
     expect(facts.qualifiers!.map((q) => q.subject)).toContain("Global Study");
   });
 });
+
+describe("cities the trip actually visited (COV-02)", () => {
+  const trip = (activities: any[]): OrbisTripInput => ({
+    trip: { start_date: "2026-09-12", end_date: "2026-09-20", destinations: ["Egypt"] },
+    activities,
+    hotels: [],
+    contacts: [],
+    accountCurrency: "GBP",
+  });
+
+  const cities = (facts: any) =>
+    facts.entities.filter((e: any) => e.kind === "city").map((e: any) => e.label).sort();
+
+  // The real shape: home airport out, a domestic city-to-city leg in the
+  // middle, home airport back. Cairo and Alexandria are both real visits;
+  // Manchester is the airport at both ends and is not one.
+  const realTrip = [
+    { id: "t1", type: "travel", title: "Fly out", day_date: "2026-09-12", from_city: "Manchester", to_city: "Cairo" },
+    { id: "t2", type: "travel", title: "Domestic", day_date: "2026-09-15", from_city: "Cairo", to_city: "Alexandria" },
+    { id: "t3", type: "travel", title: "Fly home", day_date: "2026-09-20", from_city: "Alexandria", to_city: "Manchester" },
+  ];
+
+  it("lists a city the trip actually moved through, leaving out the airport at both ends", () => {
+    const facts = toSourceFacts(trip(realTrip));
+    expect(cities(facts)).toEqual(["Alexandria", "Cairo"]);
+  });
+
+  it("takes a city from a linked school or branch record as well", () => {
+    const facts = toSourceFacts(
+      trip([
+        { id: "a1", type: "school_visit", title: "Visit", schools: { city: "Luxor" } },
+        { id: "a2", type: "agent_visit", title: "Visit", agent_branches: { city: "Aswan" } },
+      ]),
+    );
+    expect(cities(facts)).toEqual(["Aswan", "Luxor"]);
+  });
+
+  // The trap QUAL-01 already taught: "Global Study - Sheraton Office" names a
+  // hotel, "AHZ - New Cairo" names a district. Neither literally says "Cairo",
+  // and guessing would invent a fact the source does not structurally have.
+  it("reads no city out of a free-typed activity title", () => {
+    const facts = toSourceFacts(
+      trip([
+        { id: "a1", type: "agent_visit", title: "Global Study — Sheraton Office", agent_id: "g", agents: { trading_name: "Global Study" } },
+        { id: "a2", type: "agent_visit", title: "AHZ — New Cairo", agent_id: "a", agents: { trading_name: "AHZ" } },
+      ]),
+    );
+    expect(cities(facts)).toEqual([]);
+  });
+
+  it("does not report a single outbound leg's destination as home", () => {
+    // One leg only -- a trip still being planned. Cairo must not be swallowed
+    // as though it were the airport at both ends.
+    const facts = toSourceFacts(
+      trip([{ id: "t1", type: "travel", title: "Fly out", day_date: "2026-09-12", from_city: "Manchester", to_city: "Cairo" }]),
+    );
+    expect(cities(facts)).toEqual(["Cairo"]);
+  });
+
+  // A city genuinely visited is reported even when the leg that shows it
+  // trivially starts and ends there (an airport-to-hotel transfer, say) --
+  // that is still a true fact. What must not happen is a same-city leg being
+  // mistaken for a real border crossing when working out which city is home.
+  it("still reports a city recorded on a same-city leg, and does not let that leg stand in for home", () => {
+    const facts = toSourceFacts(
+      trip([
+        { id: "t1", type: "travel", title: "Transfer", day_date: "2026-09-13", from_city: "Cairo", to_city: "Cairo" },
+        ...realTrip,
+      ]),
+    );
+    // Manchester is still correctly excluded as home -- the same-city leg did
+    // not confuse which leg is the real first crossing.
+    expect(cities(facts)).toEqual(["Alexandria", "Cairo"]);
+  });
+
+  it("says nothing when no activity records a city anywhere", () => {
+    const facts = toSourceFacts(trip([{ id: "a1", type: "other", title: "Debrief" }]));
+    expect(cities(facts)).toEqual([]);
+  });
+
+  it("reports each city once even when several legs pass through it", () => {
+    const facts = toSourceFacts(
+      trip([
+        ...realTrip,
+        { id: "t4", type: "other", title: "Second Cairo stop", to_city: "Cairo" },
+      ]),
+    );
+    expect(cities(facts)).toEqual(["Alexandria", "Cairo"]);
+  });
+
+  it("stamps a missing city as COV-02, not COV-01", () => {
+    const facts = toSourceFacts(trip(realTrip));
+    const cairo = facts.entities.find((e: any) => e.label === "Cairo");
+    expect(cairo?.checkId).toBe("COV-02");
+  });
+
+  // Found by running this against the real Morocco trip, which has both
+  // "Casablanca" and "Casablanaca" recorded -- almost certainly a typo, not
+  // two places. A warning, not an error, so a misspelling in the source does
+  // not read as the report's fault.
+  it("reports a missing city as a warning, not an error", () => {
+    const facts = toSourceFacts(trip(realTrip));
+    expect(facts.entities.find((e: any) => e.label === "Cairo")?.severity).toBe("warning");
+  });
+});

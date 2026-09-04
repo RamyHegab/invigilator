@@ -69,3 +69,49 @@ describe("COV-01 scoped to a section", () => {
     expect(find(md + "\nEgypt was the destination.", country)).toEqual([]);
   });
 });
+
+describe("checkId override", () => {
+  it("stamps COV-01 by default", () => {
+    const md = `# Trip\n\nMet Nile Education.\n`;
+    const country: Entity = { id: "c", kind: "country", label: "Egypt" };
+    const f = runChecks(md, facts(country), config).findings;
+    expect(f).toHaveLength(1);
+    expect(f[0]!.checkId).toBe("COV-01");
+  });
+
+  it("stamps whatever checkId the entity carries", () => {
+    // Same mechanism, different row in the domain model's checklist: a
+    // missing city is worth naming and reasoning about separately from a
+    // missing country, even though both are found the same way.
+    const md = `# Trip\n\nMet Nile Education.\n`;
+    const city: Entity = { id: "ci", kind: "city", label: "Alexandria", checkId: "COV-02" };
+    const f = runChecks(md, facts(city), config).findings;
+    expect(f).toHaveLength(1);
+    expect(f[0]!.checkId).toBe("COV-02");
+  });
+
+  it("keeps entities of different kinds independently reportable in one run", () => {
+    const md = `# Trip\n\nMet Nile Education.\n`;
+    const country: Entity = { id: "c", kind: "country", label: "Egypt" };
+    const city: Entity = { id: "ci", kind: "city", label: "Alexandria", checkId: "COV-02" };
+    const ids = runChecks(md, facts(country, city), config).findings.map((f) => f.checkId).sort();
+    expect(ids).toEqual(["COV-01", "COV-02"]);
+  });
+});
+
+describe("severity override", () => {
+  it("is an error by default", () => {
+    const md = `# Trip\n\nMet Nile Education.\n`;
+    const country: Entity = { id: "c", kind: "country", label: "Egypt" };
+    expect(runChecks(md, facts(country), config).findings[0]!.severity).toBe("error");
+  });
+
+  it("is a warning when the entity says so", () => {
+    // A free-typed field where two spellings of the same place are a live
+    // risk -- see the adapter's city entities for the real case that forced
+    // this.
+    const md = `# Trip\n\nMet Nile Education.\n`;
+    const city: Entity = { id: "ci", kind: "city", label: "Casablanaca", severity: "warning" };
+    expect(runChecks(md, facts(city), config).findings[0]!.severity).toBe("warning");
+  });
+});

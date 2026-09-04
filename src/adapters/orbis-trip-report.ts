@@ -36,6 +36,8 @@ export type OrbisTripInput = {
      */
     to_country?: string | null;
     from_country?: string | null;
+    to_city?: string | null;
+    from_city?: string | null;
     /** Orders the travel legs, so the first departure and last arrival are known. */
     day_date?: string | null;
     agents?: { trading_name?: string | null } | null;
@@ -440,6 +442,66 @@ export function toSourceFacts(input: OrbisTripInput): SourceFacts {
       declared: declaredCountries,
       observed: observedCountries,
       where: "the trip's destinations",
+    });
+  }
+
+  // COV-02: every city the trip actually visited must be mentioned somewhere
+  // in the report. Same shape of trap as the country check, so the same fix:
+  // a city move is only real when the two ends actually differ (Cairo to
+  // Alexandria is a real leg on a domestic flight; Cairo to Cairo is not one),
+  // and home -- wherever the first leg set out from, and wherever the last one
+  // returned to -- is excluded, or a report that never repeats its own airport
+  // city reads as though it skipped a place it never went.
+  //
+  // Unlike the branch a report names, a city is not safely readable out of a
+  // free-typed activity title: "Global Study - Sheraton Office" names a hotel,
+  // "AHZ - New Cairo" names a Cairo district, neither is literally the word
+  // "Cairo". Guessing which titles contain a city name would invent facts the
+  // source does not structurally have -- exactly the mistake QUAL-01 exists to
+  // catch elsewhere. So this only ever reports a city the source recorded in a
+  // real field: a travel leg's own city columns, or a linked branch's or
+  // school's city. An agent visit whose branch was never linked contributes
+  // nothing here, same as it contributes nothing to QUAL-01's branch check.
+  const cityMoves = input.activities
+    .filter((a) => {
+      const from = a.from_city?.trim();
+      const to = a.to_city?.trim();
+      return from && to && normaliseName(from) !== normaliseName(to);
+    })
+    .slice()
+    .sort((x, y) => (x.day_date ?? "").localeCompare(y.day_date ?? ""));
+
+  const homeCities = new Set<string>();
+  const cityOrigin = cityMoves[0]?.from_city?.trim();
+  if (cityOrigin) homeCities.add(normaliseName(cityOrigin));
+  if (cityMoves.length > 1) {
+    const cityArrival = cityMoves[cityMoves.length - 1]?.to_city?.trim();
+    if (cityArrival) homeCities.add(normaliseName(cityArrival));
+  }
+
+  const citySeen = new Set<string>();
+  for (const raw of input.activities.flatMap((a) => [
+    a.to_city,
+    a.from_city,
+    a.schools?.city,
+    a.agent_branches?.city,
+  ])) {
+    const city = raw?.trim();
+    if (!city) continue;
+    const key = normaliseName(city);
+    if (!key || homeCities.has(key) || citySeen.has(key)) continue;
+    citySeen.add(key);
+    // Warning, not error: found on the real Morocco trip, where the data
+    // holds both "Casablanca" and "Casablanaca" -- almost certainly a typo,
+    // not two places. A report that correctly writes the real spelling would
+    // otherwise be told it omitted the misspelling, which blames the report
+    // for a mistake in the source it has no way to fix.
+    entities.push({
+      id: `city:${slug(city)}`,
+      kind: "city",
+      label: city,
+      checkId: "COV-02",
+      severity: "warning",
     });
   }
 

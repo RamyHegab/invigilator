@@ -46,6 +46,25 @@ export type Entity = {
    * in the artifact will do.
    */
   section?: string;
+  /**
+   * Which check a missing entity is reported under. Defaults to "COV-01".
+   *
+   * The mechanism is identical for every kind of entity -- something the
+   * source says exists and the report must mention. Two entity kinds can
+   * still be different *checks* in the domain-model sense: a missing country
+   * and a missing city are found the same way but are worth naming, disabling
+   * and reasoning about separately, the way COV-01 and COV-02 are two rows in
+   * a checklist even though one function covers both.
+   */
+  checkId?: string;
+  /**
+   * Defaults to "error". Set to "warning" for a free-typed field where two
+   * spellings of the same real thing are a live risk -- a city typed once as
+   * "Casablanca" and once as "Casablanaca" is almost certainly one place, not
+   * two, and reporting the misspelling as a hard error blames the report for
+   * a typo in the source it cannot fix. Same reasoning as COV-06/07.
+   */
+  severity?: "error" | "warning";
 };
 
 /**
