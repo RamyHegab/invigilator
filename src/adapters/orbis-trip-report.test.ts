@@ -66,6 +66,73 @@ describe("school directory link", () => {
   });
 });
 
+describe("multi-day activities (DATE-03)", () => {
+  it("supplies a span for an activity whose end_date is genuinely later", () => {
+    const facts = toSourceFacts(
+      input([
+        {
+          id: "a1",
+          type: "recruitment_event",
+          title: "GSUK Cairo Fair October 2026",
+          day_date: "2026-10-15",
+          end_date: "2026-10-17",
+        },
+      ]),
+    );
+    expect(facts.dateSpans).toEqual([
+      {
+        subject: "GSUK Cairo Fair",
+        kind: "event",
+        start: "2026-10-15",
+        end: "2026-10-17",
+        section: "Recruitment Event Outcomes",
+      },
+    ]);
+  });
+
+  it("scopes an agent visit to the engagements section, like its entity", () => {
+    const facts = toSourceFacts(
+      input([
+        {
+          id: "a1",
+          type: "agent_visit",
+          title: "Edvoy Conference",
+          agent_id: "a",
+          agents: { trading_name: "Edvoy" },
+          day_date: "2026-10-15",
+          end_date: "2026-10-16",
+        },
+      ]),
+    );
+    expect(facts.dateSpans![0]!.section).toBe("Key Agent & School Engagements");
+  });
+
+  it("says nothing for an activity with no end_date at all", () => {
+    const facts = toSourceFacts(
+      input([{ id: "a1", type: "recruitment_event", title: "Fair", day_date: "2026-10-15" }]),
+    );
+    expect(facts.dateSpans).toEqual([]);
+  });
+
+  it("says nothing when end_date equals day_date -- not a real span", () => {
+    const facts = toSourceFacts(
+      input([
+        { id: "a1", type: "recruitment_event", title: "Fair", day_date: "2026-10-15", end_date: "2026-10-15" },
+      ]),
+    );
+    expect(facts.dateSpans).toEqual([]);
+  });
+
+  it("says nothing when end_date is before day_date -- bad data, not this check's job", () => {
+    const facts = toSourceFacts(
+      input([
+        { id: "a1", type: "recruitment_event", title: "Fair", day_date: "2026-10-17", end_date: "2026-10-15" },
+      ]),
+    );
+    expect(facts.dateSpans).toEqual([]);
+  });
+});
+
 describe("total activity count (COV-05)", () => {
   it("counts every activity on the trip, whatever its type", () => {
     const facts = toSourceFacts(

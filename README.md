@@ -71,16 +71,21 @@ finding is always worth reading.
 | `ATTR-01` | A person credited with something the record gives to someone else, or to nobody |
 | `QUAL-01` | A sub-name attached to a real thing that the record never gave it — "Agency — Branch" where the branch does not exist |
 | `COV-02` | A city the trip actually visited that the report never mentions |
+| `DATE-03` | A multi-day activity collapsed to its first day — the report gives 15 October for a fair that ran 15–17 |
 | `COV-06` | Scope declared and never used — a country on the trip that nothing ever happened in |
 | `COV-07` | Scope used and never declared — work recorded somewhere the trip never said it was going |
 
-`COV-06/07`, and the Orbis adapter's `COV-02` city entities, are the deliberate
-exception to "incapable of a false positive", and report as **warnings** for
-that reason. All three read free-typed fields, so "UAE" against "United Arab
-Emirates" is flagged — and so is "Casablanca" against "Casablanaca", found on
-a real trip and almost certainly one place typed two ways. Smoothing that away
-needs a synonym list, and a wrong synonym list hides real gaps in silence — a
-worse failure than a finding a person dismisses in a second.
+`COV-06/07`, the Orbis adapter's `COV-02` city entities, and `DATE-03` are the
+deliberate exception to "incapable of a false positive", and report as
+**warnings** for that reason. The first two read free-typed fields, so "UAE"
+against "United Arab Emirates" is flagged — and so is "Casablanca" against
+"Casablanaca", found on a real trip and almost certainly one place typed two
+ways. Smoothing that away needs a synonym list, and a wrong synonym list hides
+real gaps in silence — a worse failure than a finding a person dismisses in a
+second. `DATE-03` is a warning for a related but different reason: it can only
+look for specific date strings, and a report can correctly convey a span
+without ever repeating the end date literally — "over three days from
+15 October" is honest and would still be flagged.
 
 `COV-02` shares its mechanism with `COV-01` rather than being a separate
 check: an `Entity` now carries an optional `checkId` and `severity`, so two
@@ -177,7 +182,7 @@ npm test
 
 **Report checks run in production.** Orbis imports this package and checks every new
 report overnight, and its aggregate briefing as it is generated; findings reach the
-owner as a notification and an email. 183 tests.
+owner as a notification and an email. 203 tests.
 
 The checks run inside the consuming app, not here. That is deliberate: no trip data,
 no report text and no third-party contact details have to leave an application to be
@@ -194,7 +199,7 @@ October. Until then `SIG-01..03` are fixture-tested only, and the note below say
 that is worth being nervous about.
 
 Most of the deterministic report checks in the Orbis domain model are implemented.
-Still to come: `DATE-03` and the judgement pass.
+Still to come: the judgement pass (QUA-01/02, PII-04, BRIEF-01) -- every deterministic check in the domain model is now built.
 
 ### A note on false positives
 
@@ -242,6 +247,18 @@ cell -- "activities" and "total activities" both matching "| Total Activities
 | 25 |" -- reported the one wrong number twice, as though there were two
 separate mistakes. Now one finding per count per line, however many of its
 wordings match there.
+
+**`DATE-03` has never seen a real multi-day activity**, stated plainly rather
+than glossed over: `end_date` on an activity is a real, validated field in the
+trip form, but not one row in the live database has it set. Checked against
+every real trip before trusting the wiring -- zero findings, zero errors,
+because there is nothing yet for it to find. Built and tested against
+hand-written cases shaped like the real form instead, including the exact
+trap the other checks here keep finding: a title that already carries a month
+and year ("GSUK Cairo Fair October 2026") is stripped to its bare name before
+being used as the subject, the same alias every other entity in this adapter
+gets, so the date already inside the title cannot be mistaken for the report
+having stated it.
 
 Fixtures agree with whoever wrote them. Before trusting a new check, run it over real
 output and read every finding — a checker's first findings are as likely to be its own

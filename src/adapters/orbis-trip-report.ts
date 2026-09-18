@@ -1,5 +1,5 @@
 import { normaliseName } from "../parse.js";
-import type { Attribution, Breakdown, Declaration, Qualifier, Entity, Figure, LinkFact, SourceFacts } from "../types.js";
+import type { Attribution, Breakdown, DateSpan, Declaration, Qualifier, Entity, Figure, LinkFact, SourceFacts } from "../types.js";
 
 /**
  * Orbis → SourceFacts.
@@ -40,6 +40,12 @@ export type OrbisTripInput = {
     from_city?: string | null;
     /** Orders the travel legs, so the first departure and last arrival are known. */
     day_date?: string | null;
+    /**
+     * Set only when an activity spans more than one day -- a multi-day fair,
+     * most obviously. Absent on the vast majority of activities, which happen
+     * on `day_date` alone.
+     */
+    end_date?: string | null;
     agents?: { trading_name?: string | null } | null;
     schools?: { name?: string | null; city?: string | null; country?: string | null } | null;
     agent_branches?: { branch_name?: string | null; city?: string | null; country?: string | null } | null;
@@ -551,6 +557,21 @@ export function toSourceFacts(input: OrbisTripInput): SourceFacts {
     permitted: [...branches],
   }));
 
+  // DATE-03: an activity's own end_date is set only when it genuinely spans
+  // more than one day -- a multi-day fair, most obviously. The subject is the
+  // title with its embedded month/year stripped, the same alias the entity
+  // above uses, so the check is not defeated by the one place the date
+  // already legitimately appears.
+  const dateSpans: DateSpan[] = input.activities
+    .filter((a) => a.day_date && a.end_date && a.end_date > a.day_date)
+    .map((a) => ({
+      subject: withoutPeriod(a.title),
+      kind: a.type === "recruitment_event" ? "event" : "activity",
+      start: a.day_date as string,
+      end: a.end_date as string,
+      section: a.type === "agent_visit" ? ENGAGEMENTS : a.type === "recruitment_event" ? EVENT_OUTCOMES : undefined,
+    }));
+
   const seen = new Set<string>();
   return {
     period: { start: input.trip.start_date, end: input.trip.end_date },
@@ -563,5 +584,6 @@ export function toSourceFacts(input: OrbisTripInput): SourceFacts {
     breakdowns,
     declarations,
     qualifiers,
+    dateSpans,
   };
 }

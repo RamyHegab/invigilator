@@ -227,6 +227,28 @@ export type Qualifier = {
   permitted: string[];
 };
 
+/**
+ * A named thing that ran across more than one day, as the source records it.
+ *
+ * Nothing forces a report to keep both ends of a span once it starts naming
+ * dates in prose: "a productive visit on 15 October" is a perfectly natural
+ * sentence about a fair that actually ran 15-17 October, and reads no
+ * differently from one that ran a single day. The reader has no way to tell
+ * the difference from the sentence alone, and neither does any check that
+ * only asks whether a subject was mentioned.
+ */
+export type DateSpan = {
+  /** The activity or event as it should be found in the report. */
+  subject: string;
+  /** Singular, lower case, for the finding's wording -- e.g. "activity". */
+  kind: string;
+  /** ISO yyyy-mm-dd. Must be strictly before `end`, or nothing is checked. */
+  start: string;
+  end: string;
+  /** Where a reader would look for this subject, if scoped. */
+  section?: string;
+};
+
 export type SourceFacts = {
   /** Dates in the artifact must fall inside this range, when given. */
   period?: { start: string; end: string };
@@ -249,6 +271,8 @@ export type SourceFacts = {
   declarations?: Declaration[];
   /** Sub-names an artifact may attach to a named thing; checked by QUAL-01. */
   qualifiers?: Qualifier[];
+  /** Multi-day things whose full span must survive into the report; checked by DATE-03. */
+  dateSpans?: DateSpan[];
 };
 
 export type SectionSpec = {

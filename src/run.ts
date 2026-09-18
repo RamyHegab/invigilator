@@ -7,6 +7,7 @@ import { breakdownOrder, breakdownParts, breakdownTotal } from "./checks/breakdo
 import { attribution } from "./checks/attribution.js";
 import { declaredButUnused, usedButUndeclared } from "./checks/scope.js";
 import { qualifiers } from "./checks/qualifier.js";
+import { dateSpanKept } from "./checks/date-span.js";
 
 /**
  * Every deterministic check. Judgement checks (does the summary address the
@@ -31,6 +32,7 @@ export const CHECKS: Check[] = [
   declaredButUnused,
   usedButUndeclared,
   qualifiers,
+  dateSpanKept,
 ];
 
 export type RunResult = {
