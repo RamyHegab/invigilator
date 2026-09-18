@@ -273,6 +273,11 @@ export type SourceFacts = {
   qualifiers?: Qualifier[];
   /** Multi-day things whose full span must survive into the report; checked by DATE-03. */
   dateSpans?: DateSpan[];
+  /**
+   * Third-party postal addresses the app holds, which must never appear; PII-04.
+   * Matched loosely on punctuation and case, so a comma moved is still a leak.
+   */
+  addresses?: string[];
 };
 
 export type SectionSpec = {

@@ -66,6 +66,49 @@ describe("school directory link", () => {
   });
 });
 
+describe("third-party addresses the app holds (PII-04)", () => {
+  it("collects every address held for the branches, schools and head offices on the trip", () => {
+    const facts = toSourceFacts(
+      input([
+        { id: "a1", type: "agent_visit", title: "Edvoy - Cairo", agent_id: "e", agents: { trading_name: "Edvoy", hq_address: "1 Baker Street, London NW1 6XE" }, agent_branches: { formatted_address: "Zamalek, Cairo, Egypt 11211", address: "12 Sarayat El Gezira, Zamalek" } },
+        { id: "a2", type: "school_visit", title: "School", schools: { formatted_address: "6 October City, Giza, Egypt" } },
+      ]),
+    );
+    expect(facts.addresses).toEqual(
+      expect.arrayContaining([
+        "1 Baker Street, London NW1 6XE",
+        "Zamalek, Cairo, Egypt 11211",
+        "12 Sarayat El Gezira, Zamalek",
+        "6 October City, Giza, Egypt",
+      ]),
+    );
+    expect(facts.addresses).toHaveLength(4);
+  });
+
+  it("holds each address once however many activities share it", () => {
+    const same = { formatted_address: "Zamalek, Cairo, Egypt 11211" };
+    const facts = toSourceFacts(
+      input([
+        { id: "a1", type: "agent_visit", title: "A", agent_branches: same },
+        { id: "a2", type: "agent_visit", title: "B", agent_branches: same },
+      ]),
+    );
+    expect(facts.addresses).toEqual(["Zamalek, Cairo, Egypt 11211"]);
+  });
+
+  it("ignores blank addresses", () => {
+    const facts = toSourceFacts(
+      input([{ id: "a1", type: "agent_visit", title: "A", agent_branches: { address: "   ", formatted_address: null } }]),
+    );
+    expect(facts.addresses).toEqual([]);
+  });
+
+  it("does not treat a hotel as somebody's contact address", () => {
+    const facts = toSourceFacts({ ...input([]), hotels: [{ cost: 100, address: "1 Hotel Road" } as any] });
+    expect(facts.addresses).toEqual([]);
+  });
+});
+
 describe("multi-day activities (DATE-03)", () => {
   it("supplies a span for an activity whose end_date is genuinely later", () => {
     const facts = toSourceFacts(

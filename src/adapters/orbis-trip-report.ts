@@ -46,9 +46,10 @@ export type OrbisTripInput = {
      * on `day_date` alone.
      */
     end_date?: string | null;
-    agents?: { trading_name?: string | null } | null;
-    schools?: { name?: string | null; city?: string | null; country?: string | null } | null;
-    agent_branches?: { branch_name?: string | null; city?: string | null; country?: string | null } | null;
+    agents?: { trading_name?: string | null; hq_address?: string | null } | null;
+    /** Addresses are held for PII-04 only: the report writer is never given one. */
+    schools?: { name?: string | null; city?: string | null; country?: string | null; address?: string | null; formatted_address?: string | null } | null;
+    agent_branches?: { branch_name?: string | null; city?: string | null; country?: string | null; address?: string | null; formatted_address?: string | null } | null;
   }>;
   hotels: Array<{ cost?: number | string | null; cost_currency?: string | null }>;
   /** Contact rows, so their names and details can be forbidden by exact match. */
@@ -572,6 +573,24 @@ export function toSourceFacts(input: OrbisTripInput): SourceFacts {
       section: a.type === "agent_visit" ? ENGAGEMENTS : a.type === "recruitment_event" ? EVENT_OUTCOMES : undefined,
     }));
 
+  // PII-04: every third-party postal address the app holds for this trip. Hotels
+  // are left out on purpose -- a hotel is a venue the report may name, not a
+  // contact's address. Each is held whole, so the check can match it exactly.
+  const addresses = Array.from(
+    new Set(
+      input.activities
+        .flatMap((a) => [
+          a.agent_branches?.address,
+          a.agent_branches?.formatted_address,
+          a.schools?.address,
+          a.schools?.formatted_address,
+          a.agents?.hq_address,
+        ])
+        .map((x) => x?.trim())
+        .filter((x): x is string => Boolean(x)),
+    ),
+  );
+
   const seen = new Set<string>();
   return {
     period: { start: input.trip.start_date, end: input.trip.end_date },
@@ -585,5 +604,6 @@ export function toSourceFacts(input: OrbisTripInput): SourceFacts {
     declarations,
     qualifiers,
     dateSpans,
+    addresses,
   };
 }

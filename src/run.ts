@@ -8,6 +8,7 @@ import { attribution } from "./checks/attribution.js";
 import { declaredButUnused, usedButUndeclared } from "./checks/scope.js";
 import { qualifiers } from "./checks/qualifier.js";
 import { dateSpanKept } from "./checks/date-span.js";
+import { postalAddress } from "./checks/address.js";
 
 /**
  * Every deterministic check. Judgement checks (does the summary address the
@@ -33,6 +34,7 @@ export const CHECKS: Check[] = [
   usedButUndeclared,
   qualifiers,
   dateSpanKept,
+  postalAddress,
 ];
 
 export type RunResult = {
