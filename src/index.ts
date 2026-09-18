@@ -53,3 +53,20 @@ export type { BehaviourEvent, SignalConfig, SignalCheck, SignalContext } from ".
 export { runTallies } from "./tallies/run.js";
 export type { TallyResult } from "./tallies/run.js";
 export type { Tally, TallyConfig, Counts } from "./tallies/types.js";
+
+/**
+ * The judgement pass: checks that need a reader rather than a rule. The engine
+ * never calls a model -- the caller supplies one -- and every finding must quote
+ * text that is really in the artifact, or it is discarded. See judgement/types.
+ */
+export { runJudgement } from "./judgement/run.js";
+export { JUDGEMENT_CHECKS } from "./judgement/checks.js";
+export { quoteAppears } from "./judgement/guards.js";
+export type {
+  Judge,
+  JudgeRequest,
+  JudgementCheck,
+  JudgementFacts,
+  JudgementOptions,
+  JudgementResult,
+} from "./judgement/types.js";

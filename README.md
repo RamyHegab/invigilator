@@ -119,9 +119,63 @@ any check here: the report prompt required agent-visit titles to read
 model invented plausible ones. An invented branch is unfalsifiable by reading --
 the agency is real, the format is right, and the branch simply does not exist.
 
-Judgement checks — does the summary address the stated objectives, is a claim
-supported by the data — need a model and run in a separate pass. They are
-deliberately **not** in this registry.
+`PII-04` (a third party's address in the report) is deterministic after all. The
+report writer is never given addresses, so a leak is either free text pasted from
+a note -- matched exactly against the addresses the app holds, an error -- or an
+address the model invented, matched by pattern, a warning.
+
+### The judgement pass
+
+Three checks need a reader, not a lookup, and run in a separate pass
+(`runJudgement`), deliberately **not** in the registry above:
+
+- `QUA-01` -- does the executive summary say anything about each stated objective?
+  Lenient by design: "we did not reach X" addresses X. Only silence is reported.
+- `QUA-02` -- does the report assert a result, quantity or attributed statement the
+  source does not support? Three inventions are hunted: an objective turned into an
+  outcome, a hedge ("might", "keen to") turned into a commitment, and an added
+  detail. Interpretation is not reported.
+- `BRIEF-01` -- does a summary derived from a note (a visit brief) add a fact or
+  reverse the note? A shorter brief is fine; leaving things out is what a brief is for.
+
+How it stays safe to run:
+
+- **The engine never calls a model.** The caller passes a `judge` function, so the
+  model, the key and the spend stay in the consuming app.
+- **Every finding must quote text that is really in the artifact.** A finding whose
+  quote cannot be found is discarded (and logged), so the judge cannot complain
+  about a sentence nobody wrote. A quote with a single slipped letter is matched to
+  the report's own sentence and *that* is shown as the evidence.
+- **Every finding is a warning**, never an error, and worded as a reader's
+  judgement. When unsure the judge is told not to report: accusing a correct
+  sentence is worse than missing a faulty one.
+- **A check that could not read the judge's answer is skipped, not passed.** It is
+  listed in `skipped` with the reason. An empty or truncated reply used to look
+  exactly like a clean report.
+- Report and notes are fenced as untrusted material, so a note reading "ignore your
+  instructions" costs at most a finding; the judge takes no action.
+
+What the caller must know:
+
+- **Give the judge a generous output limit (16 000 tokens worked) or turn thinking
+  off.** On Sonnet 5 the limit covers thinking *and* the answer; at 4 096 one
+  report used it all thinking and returned nothing.
+- **Judge against what the report writer saw**, not the raw database. In Orbis that
+  is `buildTripContext(...).text`. Judging against more than the writer had would
+  flag correct omissions; against less would flag correct facts.
+- **Cost and data flow.** One report is roughly 5 000 tokens in and 3 000 out per
+  check, and the report and its source text go to the model provider -- the same
+  data the report writer already sends.
+- **Results vary between runs.** The same report can yield slightly different
+  findings twice. Treat one run as a good reader's first pass.
+
+How far it has been trusted: seven model-written reports from the demo data, a
+hand-built answer key on the one fully seeded report (every planted error was
+found, no supported sentence was accused), and synthetic cases for `QUA-01` and
+`BRIEF-01` (silent and partly silent summaries; reversed, invented and hedged
+briefs). It has **not** seen a real generated brief or a real production report,
+and `BRIEF-01` has only been measured on hand-made pairs. That is why every
+finding is a warning.
 
 ## Behavioural checks
 
@@ -182,7 +236,8 @@ npm test
 
 **Report checks run in production.** Orbis imports this package and checks every new
 report overnight, and its aggregate briefing as it is generated; findings reach the
-owner as a notification and an email. 203 tests.
+owner as a notification and an email. The judgement pass is built and tested but
+**not yet wired into Orbis**. 281 tests.
 
 The checks run inside the consuming app, not here. That is deliberate: no trip data,
 no report text and no third-party contact details have to leave an application to be
@@ -198,8 +253,8 @@ faithfully and no reader can catch.
 October. Until then `SIG-01..03` are fixture-tested only, and the note below says why
 that is worth being nervous about.
 
-Most of the deterministic report checks in the Orbis domain model are implemented.
-Still to come: the judgement pass (QUA-01/02, PII-04, BRIEF-01) -- every deterministic check in the domain model is now built.
+Every check in the Orbis domain model is now built. What remains is wiring the
+judgement pass into Orbis's nightly run.
 
 ### A note on false positives
 
