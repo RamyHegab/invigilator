@@ -236,8 +236,8 @@ npm test
 
 **Report checks run in production.** Orbis imports this package and checks every new
 report overnight, and its aggregate briefing as it is generated; findings reach the
-owner as a notification and an email. The judgement pass is built and tested but
-**not yet wired into Orbis**. 281 tests.
+owner as a notification and an email. The judgement pass is wired into the same nightly run
+but ships **switched off** until the app sets `JUDGEMENT_LIVE=1`. 281 tests.
 
 The checks run inside the consuming app, not here. That is deliberate: no trip data,
 no report text and no third-party contact details have to leave an application to be
@@ -253,8 +253,8 @@ faithfully and no reader can catch.
 October. Until then `SIG-01..03` are fixture-tested only, and the note below says why
 that is worth being nervous about.
 
-Every check in the Orbis domain model is now built. What remains is wiring the
-judgement pass into Orbis's nightly run.
+Every check in the Orbis domain model is now built. What remains is switching the
+judgement pass on and watching its first real runs.
 
 ### A note on false positives
 
