@@ -186,15 +186,26 @@ shapes that only appear when something is wrong.
 
 | Id | What it catches |
 |---|---|
-| `SIG-01` | A control several people click and get nothing from |
-| `SIG-02` | An error that keeps happening and is never reported |
-| `SIG-03` | A request that keeps failing behind a spinner |
+| `SIG-01` | A control people click and get nothing from |
+| `SIG-02` | An error that happens and is never reported |
+| `SIG-03` | A request that fails behind a spinner |
 
-Every one asks the same question first: **did this happen to several different
-people?** One person clicking a button eleven times has had a bad afternoon;
-three people clicking it means the button is lying about being clickable. Both a
-minimum number of people and a minimum number of occurrences must be met —
-either alone reports coincidences.
+How many people must hit something before it is reported is the app's decision:
+`minActors` and `minOccurrences` in the config. The engine's default is 3 people and
+5 occurrences, which suits an app with many users doing the same things.
+
+**Orbis sets both to 1.** Most of what it does is done by one or two people at a
+university, and some of it once a year, so a fault in those functions would never
+reach three people and would stay unfixed until somebody wrote in. An app that does
+this needs its collector to be clean, because every stray event becomes an email:
+Orbis does not count clicks on typing fields or empty space, ignores the browser's
+harmless `ResizeObserver` notice, and records one error at most three times a session.
+It also holds back repeats itself, for 14 days per finding.
+
+Orbis has a second route the engine plays no part in: when a person is shown an error
+that is Orbis's own fault (a database constraint, a missing column, a timeout), the
+platform owner is emailed at once rather than the next morning, at most once a day
+for each fault.
 
 ## Tallies
 
@@ -234,27 +245,35 @@ npm test
 
 ## Status
 
-**Report checks run in production.** Orbis imports this package and checks every new
-report overnight, and its aggregate briefing as it is generated; findings reach the
-owner as a notification and an email. The judgement pass is wired into the same nightly run
-but ships **switched off** until the app sets `JUDGEMENT_LIVE=1`. 281 tests.
+**Report checks run in production, while the report is written.** Orbis reads each
+trip report draft against the trip's record as it is generated: what disagrees goes
+back to the writer, and the author receives the corrected draft and no list of
+findings. If the check fails, the draft is kept as written. Its aggregate briefing is
+checked as it is generated too. The judgement pass runs as part of this wherever the
+app has a model key, and `JUDGEMENT_LIVE=0` turns it off. 281 tests.
+
+This replaced a nightly check that emailed authors coded findings the next morning.
+Most of those were wrong: 20 of 21 on one real report, which compared one fair's leads
+with the whole trip's and counted fair days as fairs. Treat a check's first findings on
+real data as likely to be the check's own bugs.
 
 The checks run inside the consuming app, not here. That is deliberate: no trip data,
 no report text and no third-party contact details have to leave an application to be
-checked.
+checked by this package. The judgement pass is the exception, since it sends the report
+and its source text to the app's model provider.
 
 Two of them never read the report at all. `COV-06` and `COV-07` compare a trip's
 declared destinations against the countries its activities actually happened in
 — a disagreement inside the source, which a faithful report reproduces
 faithfully and no reader can catch.
 
-**The behavioural checks have never seen real traffic.** Capture went live on
-2026-08-26; the first events of consequence will come from trips in September and
-October. Until then `SIG-01..03` are fixture-tested only, and the note below says why
-that is worth being nervous about.
+**The behavioural checks run nightly on real traffic.** Capture went live on
+2026-08-26. The first real data showed the collector was the weak part: 93% of "dead"
+clicks were on text fields or empty space, every notice sent in September came from
+those, and one harmless browser message was recorded 3,702 times.
 
-Every check in the Orbis domain model is now built. What remains is switching the
-judgement pass on and watching its first real runs.
+Not yet proven: the instant fault email has never fired in production, and `BRIEF-01`
+has not been measured on real generated briefs.
 
 ### A note on false positives
 
