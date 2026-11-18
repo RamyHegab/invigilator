@@ -1,4 +1,5 @@
 import { normaliseName } from "../parse.js";
+import { fold } from "../text.js";
 import type { Attribution, Breakdown, DateSpan, Declaration, Qualifier, Entity, Figure, LinkFact, SourceFacts } from "../types.js";
 
 /**
@@ -142,7 +143,10 @@ function branchInTitle(title: string, agency: string): string | null {
 }
 
 /** Same event, same section, one thing to say. Multi-day fairs are separate rows. */
-const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+// Accents fold first, so "Lycée X" and "Lycee X" are one id and "São Paulo"
+// is "sao-paulo", not "s-o-paulo".
+const slug = (s: string) =>
+  fold(s).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "");
 
 /** Activity types that record a person going somewhere, so can be misattributed. */
 const VISIT_TYPES = new Set(["agent_visit", "school_visit", "recruitment_event"]);
