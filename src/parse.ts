@@ -6,6 +6,8 @@
  * an AST — and it cannot drag a parser's opinions into a compliance finding.
  */
 
+import { fold } from "./text.js";
+
 export type Section = {
   /** Heading text with markdown and numbering stripped: "Cost Summary". */
   name: string;
@@ -35,11 +37,12 @@ export function normaliseHeading(raw: string): string {
  * hides real gaps in silence.
  */
 export function normaliseName(name: string): string {
-  return name
+  // fold() so "Cote" matches the accented spelling and "Diyarbakir" matches
+  // "Diyarbakır". Letters outside a-z are kept, not turned into spaces: a
+  // university's own names may be in any script.
+  return fold(name)
     .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "") // so "Cote" matches the accented spelling
-    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
     .replace(/^the /, "")
     .trim();
 }
@@ -155,7 +158,7 @@ export function parseAmounts(text: string): number[] {
 export function mentions(haystack: string, needle: string): boolean {
   if (!needle.trim()) return false;
   const norm = (s: string) =>
-    s
+    fold(s)
       .toLowerCase()
       .replace(/[‐-―\-_/\\,.;:()[\]{}'"“”‘’]+/g, " ")
       .replace(/\s+/g, " ")

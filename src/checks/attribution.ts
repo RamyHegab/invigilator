@@ -1,4 +1,5 @@
 import type { Attribution, Check, Finding } from "../types.js";
+import { END, START, fold, foldKey, sameName } from "../text.js";
 
 /**
  * Who the artifact says did what.
@@ -26,9 +27,11 @@ const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
  *
  * Word boundaries still apply, so a short name is not found inside a longer
  * word — "AHZ" must not match "AHZUK".
+ *
+ * Accents fold away too: "José" in the record is "Jose" in the report.
  */
 const flatten = (s: string) =>
-  s
+  fold(s)
     .toLowerCase()
     .replace(/[‐-―\-_/\\,.;:()[\]{}'"“”‘’]+/g, " ")
     .replace(/\s+/g, " ")
@@ -37,7 +40,7 @@ const flatten = (s: string) =>
 const namesIn = (text: string, name: string) => {
   const needle = flatten(name);
   if (!needle) return false;
-  return new RegExp(`\\b${esc(needle)}\\b`, "i").test(flatten(text));
+  return new RegExp(`${START}${esc(needle)}${END}`, "iu").test(flatten(text));
 };
 
 const subjectLabels = (a: Attribution) => [a.subject, ...(a.aliases ?? [])];
@@ -90,7 +93,7 @@ const blocksOf = (artifact: string): string[] => {
 function bySubject(attributions: Attribution[]): Attribution[] {
   const groups = new Map<string, Attribution[]>();
   for (const a of attributions) {
-    const key = `${(a.relation ?? "").toLowerCase()}|${a.subject.trim().toLowerCase()}`;
+    const key = `${(a.relation ?? "").toLowerCase()}|${foldKey(a.subject)}`;
     (groups.get(key) ?? groups.set(key, []).get(key)!).push(a);
   }
 
@@ -100,7 +103,7 @@ function bySubject(attributions: Attribution[]): Attribution[] {
         // "the record names somebody" are different claims, and any sentinel
         // string could in principle collide with a real name.
         const distinct = new Set<string | null>(
-          group.map((a) => (a.expected === null ? null : a.expected.toLowerCase())),
+          group.map((a) => (a.expected === null ? null : foldKey(a.expected))),
         );
     if (distinct.size !== 1) continue;
     out.push(group[0]!);
@@ -162,11 +165,11 @@ export const attribution: Check = {
         continue;
       }
 
-      const wrong = named.filter((n) => n.toLowerCase() !== a.expected!.toLowerCase());
+      const wrong = named.filter((n) => !sameName(n, a.expected!));
       // Right name present alongside another is fine -- two colleagues, or a
       // name mentioned for a different reason. Only a wrong name standing in
       // place of the right one is a false record.
-      if (wrong.length && !named.some((n) => n.toLowerCase() === a.expected!.toLowerCase())) {
+      if (wrong.length && !named.some((n) => sameName(n, a.expected!))) {
         findings.push({
           checkId: "ATTR-01",
           severity: "error",

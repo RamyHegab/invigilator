@@ -1,5 +1,6 @@
 import type { Breakdown, BreakdownPart, Check, CheckContext, Finding } from "../types.js";
 import { sectionScope } from "../parse.js";
+import { END, START, composed, fold } from "../text.js";
 
 /**
  * Breakdowns: a whole, its parts, and the order they are presented in.
@@ -56,21 +57,26 @@ type Stated = { value: number; evidence: string; index: number; line: number };
 function statedValues(text: string, labels: string[]): Stated[] {
   const out: Stated[] = [];
   let offset = 0;
-  for (const line of text.split(/\r?\n/)) {
+  // Matched on the accent-free text, quoted from the original: fold() keeps
+  // length, so a position in one is the same position in the other.
+  for (const original of composed(text).split(/\r?\n/)) {
+    const line = fold(original);
     for (const label of labels) {
       if (!label.trim()) continue;
-      const l = esc(label.trim());
-      const after = new RegExp(`\\b${l}\\b${SEP}${NUM}`, "gi");
-      const before = new RegExp(`${NUM}${SEP}\\b${l}\\b`, "gi");
+      const l = esc(fold(label.trim()));
+      const after = new RegExp(`${START}${l}${END}${SEP}${NUM}`, "giu");
+      const before = new RegExp(`${NUM}${SEP}${START}${l}${END}`, "giu");
       for (const re of [after, before]) {
         for (const m of line.matchAll(re)) {
           const value = Number((m[1] ?? "").replace(/,/g, ""));
           if (!Number.isFinite(value)) continue;
-          out.push({ value, evidence: m[0].trim(), index: offset + (m.index ?? 0), line: offset });
+          const at = m.index ?? 0;
+          const evidence = original.slice(at, at + m[0].length).trim();
+          out.push({ value, evidence, index: offset + at, line: offset });
         }
       }
     }
-    offset += line.length + 1;
+    offset += original.length + 1;
   }
 
   // One number, one line, one claim. Both arrangements match "7 total leads
@@ -88,9 +94,10 @@ function statedValues(text: string, labels: string[]): Stated[] {
 /** Where a label is first mentioned at all, number or not. -1 when absent. */
 function firstMention(text: string, labels: string[]): number {
   let best = -1;
+  const folded = fold(text);
   for (const label of labels) {
     if (!label.trim()) continue;
-    const m = new RegExp(`\\b${esc(label.trim())}\\b`, "i").exec(text);
+    const m = new RegExp(`${START}${esc(fold(label.trim()))}${END}`, "iu").exec(folded);
     if (m && (best === -1 || m.index < best)) best = m.index;
   }
   return best;

@@ -1,5 +1,6 @@
 import type { Check, Finding } from "../types.js";
 import { sectionScope } from "../parse.js";
+import { fold } from "../text.js";
 
 /**
  * Numbers the report states about itself.
@@ -37,9 +38,9 @@ const numberFrom = (token: string): number | null => {
 
 /** Words only — punctuation is noise for this comparison. */
 const tokenise = (text: string): string[] =>
-  text
+  fold(text)
     .toLowerCase()
-    .split(/[^a-z0-9,]+/)
+    .split(/[^\p{L}\p{N},]+/u)
     .filter(Boolean)
     .map((t) => t.replace(/,$/, ""));
 
